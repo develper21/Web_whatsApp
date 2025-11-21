@@ -8,7 +8,7 @@ import ProfilePage from "./pages/ProfilePage";
 
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "./store/useAuthStore";
-import { useThemeStore } from "./store/useThemeStore";
+import { DEFAULT_THEME } from "./constants";
 import { useEffect } from "react";
 
 import { Loader } from "lucide-react";
@@ -16,7 +16,7 @@ import { Toaster } from "react-hot-toast";
 
 const App = () => {
   const { authUser, checkAuth, isCheckingAuth, onlineUsers } = useAuthStore();
-  const { theme } = useThemeStore();
+  const theme = DEFAULT_THEME;
 
   console.log({ onlineUsers });
 

@@ -12,8 +12,8 @@ const getErrorMessage = (error) =>
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
-  isSigningUp: false,
-  isLoggingIn: false,
+  isRequestingOtp: false,
+  isVerifyingOtp: false,
   isUpdatingProfile: false,
   isCheckingAuth: true,
   onlineUsers: [],
@@ -33,32 +33,33 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  signup: async (data) => {
-    set({ isSigningUp: true });
+  requestOtp: async (phoneNumber) => {
+    set({ isRequestingOtp: true });
     try {
-      const res = await axiosInstance.post("/auth/signup", data);
-      set({ authUser: res.data });
-      toast.success("Account created successfully");
-      get().connectSocket();
+      await axiosInstance.post("/auth/request-otp", { phoneNumber });
+      toast.success("OTP sent successfully");
+      return true;
     } catch (error) {
       toast.error(getErrorMessage(error));
+      return false;
     } finally {
-      set({ isSigningUp: false });
+      set({ isRequestingOtp: false });
     }
   },
 
-  login: async (data) => {
-    set({ isLoggingIn: true });
+  verifyOtp: async (payload) => {
+    set({ isVerifyingOtp: true });
     try {
-      const res = await axiosInstance.post("/auth/login", data);
+      const res = await axiosInstance.post("/auth/verify-otp", payload);
       set({ authUser: res.data });
-      toast.success("Logged in successfully");
-
+      toast.success("Authentication successful");
       get().connectSocket();
+      return true;
     } catch (error) {
       toast.error(getErrorMessage(error));
+      return false;
     } finally {
-      set({ isLoggingIn: false });
+      set({ isVerifyingOtp: false });
     }
   },
 
