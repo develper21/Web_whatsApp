@@ -2,23 +2,33 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    email: {
+    phoneNumber: {
       type: String,
       required: true,
       unique: true,
+      index: true,
     },
     fullName: {
       type: String,
-      required: true,
-    },
-    password: {
-      type: String,
-      required: true,
-      minlength: 6,
+      default: "",
+      trim: true,
     },
     profilePic: {
       type: String,
       default: "",
+    },
+    otpHash: {
+      type: String,
+    },
+    otpExpiry: {
+      type: Date,
+    },
+    otpAttemptCount: {
+      type: Number,
+      default: 0,
+    },
+    lastOtpSentAt: {
+      type: Date,
     },
   },
   { timestamps: true }
