@@ -1,77 +1,125 @@
-import { generateToken } from "../lib/utils.js";
-import User from "../models/user.model.js";
+import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
+import { generateToken } from "../lib/utils.js";
+import User from "../models/user.model.js";
+import { dispatchOtp } from "../services/otp.service.js";
 
-export const signup = async (req, res) => {
-  const { fullName, email, password } = req.body;
+const OTP_LENGTH = Number(process.env.OTP_LENGTH) || 6;
+const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES) || 5;
+const OTP_RESEND_INTERVAL_SECONDS = Number(process.env.OTP_RESEND_INTERVAL_SECONDS) || 60;
+const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS) || 5;
+
+const sanitizePhoneNumber = (phone) => phone?.replace(/\s|-/g, "");
+const isValidPhoneNumber = (phone) => /^\+?\d{8,15}$/.test(phone || "");
+const generateOtp = () =>
+  crypto
+    .randomInt(0, 10 ** OTP_LENGTH)
+    .toString()
+    .padStart(OTP_LENGTH, "0");
+
+const buildUserResponse = (user) => ({
+  _id: user._id,
+  fullName: user.fullName,
+  phoneNumber: user.phoneNumber,
+  profilePic: user.profilePic,
+  createdAt: user.createdAt,
+});
+
+export const requestOtp = async (req, res) => {
   try {
-    if (!fullName || !email || !password) {
-      return res.status(400).json({ message: "All fields are required" });
+    let { phoneNumber } = req.body;
+    phoneNumber = sanitizePhoneNumber(phoneNumber);
+
+    if (!isValidPhoneNumber(phoneNumber)) {
+      return res.status(400).json({ message: "Please provide a valid phone number with country code" });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    let user = await User.findOne({ phoneNumber });
+
+    if (user?.lastOtpSentAt) {
+      const secondsSinceLastOtp = (Date.now() - user.lastOtpSentAt.getTime()) / 1000;
+      if (secondsSinceLastOtp < OTP_RESEND_INTERVAL_SECONDS) {
+        const waitTime = Math.ceil(OTP_RESEND_INTERVAL_SECONDS - secondsSinceLastOtp);
+        return res.status(429).json({ message: `Please wait ${waitTime}s before requesting a new OTP` });
+      }
     }
 
-    const user = await User.findOne({ email });
-
-    if (user) return res.status(400).json({ message: "Email already exists" });
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    const newUser = new User({
-      fullName,
-      email,
-      password: hashedPassword,
-    });
-
-    if (newUser) {
-      // generate jwt token here
-      generateToken(newUser._id, res);
-      await newUser.save();
-
-      res.status(201).json({
-        _id: newUser._id,
-        fullName: newUser.fullName,
-        email: newUser.email,
-        profilePic: newUser.profilePic,
-      });
-    } else {
-      res.status(400).json({ message: "Invalid user data" });
+    if (!user) {
+      user = new User({ phoneNumber });
     }
+
+    const otp = generateOtp();
+    const otpHash = await bcrypt.hash(otp, 10);
+
+    user.otpHash = otpHash;
+    user.otpExpiry = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+    user.otpAttemptCount = 0;
+    user.lastOtpSentAt = new Date();
+
+    await user.save();
+
+    await dispatchOtp(phoneNumber, otp);
+
+    res.status(200).json({ message: "OTP sent successfully" });
   } catch (error) {
-    console.log("Error in signup controller", error.message);
-    res.status(500).json({ message: "Internal Server Error" });
+    console.log("Error in requestOtp controller", error.message);
+    res.status(500).json({ message: "Unable to send OTP. Please try again later." });
   }
 };
 
-export const login = async (req, res) => {
-  const { email, password } = req.body;
+export const verifyOtp = async (req, res) => {
   try {
-    const user = await User.findOne({ email });
+    let { phoneNumber, otp, fullName } = req.body;
+    phoneNumber = sanitizePhoneNumber(phoneNumber);
+    otp = otp?.trim();
 
-    if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
+    if (!isValidPhoneNumber(phoneNumber) || !otp) {
+      return res.status(400).json({ message: "Phone number and OTP are required" });
     }
 
-    const isPasswordCorrect = await bcrypt.compare(password, user.password);
-    if (!isPasswordCorrect) {
-      return res.status(400).json({ message: "Invalid credentials" });
+    const user = await User.findOne({ phoneNumber });
+
+    if (!user || !user.otpHash) {
+      return res.status(400).json({ message: "OTP has not been requested for this number" });
     }
+
+    if (!user.otpExpiry || user.otpExpiry.getTime() < Date.now()) {
+      user.otpHash = undefined;
+      user.otpExpiry = undefined;
+      await user.save();
+      return res.status(400).json({ message: "OTP has expired. Please request a new one." });
+    }
+
+    if (user.otpAttemptCount >= OTP_MAX_ATTEMPTS) {
+      return res.status(429).json({ message: "Too many incorrect attempts. Please request a new OTP." });
+    }
+
+    const isMatch = await bcrypt.compare(otp, user.otpHash);
+
+    if (!isMatch) {
+      user.otpAttemptCount += 1;
+      await user.save();
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+
+    if (fullName && typeof fullName === "string") {
+      user.fullName = fullName.trim();
+    }
+
+    user.otpHash = undefined;
+    user.otpExpiry = undefined;
+    user.otpAttemptCount = 0;
+    user.lastOtpSentAt = undefined;
+
+    await user.save();
 
     generateToken(user._id, res);
 
-    res.status(200).json({
-      _id: user._id,
-      fullName: user.fullName,
-      email: user.email,
-      profilePic: user.profilePic,
-    });
+    res.status(200).json(buildUserResponse(user));
   } catch (error) {
-    console.log("Error in login controller", error.message);
-    res.status(500).json({ message: "Internal Server Error" });
+    console.log("Error in verifyOtp controller", error.message);
+    res.status(500).json({ message: "Unable to verify OTP. Please try again later." });
   }
 };
 
@@ -87,21 +135,27 @@ export const logout = (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const { profilePic } = req.body;
+    const { profilePic, fullName } = req.body;
     const userId = req.user._id;
 
-    if (!profilePic) {
-      return res.status(400).json({ message: "Profile pic is required" });
+    if (!profilePic && !fullName) {
+      return res.status(400).json({ message: "Nothing to update" });
     }
 
-    const uploadResponse = await cloudinary.uploader.upload(profilePic);
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { profilePic: uploadResponse.secure_url },
-      { new: true }
-    );
+    const updatePayload = {};
 
-    res.status(200).json(updatedUser);
+    if (profilePic) {
+      const uploadResponse = await cloudinary.uploader.upload(profilePic);
+      updatePayload.profilePic = uploadResponse.secure_url;
+    }
+
+    if (typeof fullName === "string") {
+      updatePayload.fullName = fullName.trim();
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(userId, updatePayload, { new: true });
+
+    res.status(200).json(buildUserResponse(updatedUser));
   } catch (error) {
     console.log("error in update profile:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -110,7 +164,7 @@ export const updateProfile = async (req, res) => {
 
 export const checkAuth = (req, res) => {
   try {
-    res.status(200).json(req.user);
+    res.status(200).json(buildUserResponse(req.user));
   } catch (error) {
     console.log("Error in checkAuth controller", error.message);
     res.status(500).json({ message: "Internal Server Error" });
