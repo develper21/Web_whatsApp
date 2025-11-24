@@ -5,10 +5,10 @@ import { generateToken } from "../lib/utils.js";
 import User from "../models/user.model.js";
 import { dispatchOtp } from "../services/otp.service.js";
 
-const OTP_LENGTH = Number(process.env.OTP_LENGTH) || 6;
-const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES) || 5;
-const OTP_RESEND_INTERVAL_SECONDS = Number(process.env.OTP_RESEND_INTERVAL_SECONDS) || 60;
-const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS) || 5;
+const OTP_LENGTH = Number(process.env.OTP_LENGTH);
+const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES);
+const OTP_RESEND_INTERVAL_SECONDS = Number(process.env.OTP_RESEND_INTERVAL_SECONDS);
+const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS);
 
 const sanitizePhoneNumber = (phone) => phone?.replace(/\s|-/g, "");
 const isValidPhoneNumber = (phone) => /^\+?\d{8,15}$/.test(phone || "");
