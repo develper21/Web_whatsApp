@@ -1,20 +1,43 @@
 import { useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
-import AuthImagePattern from "../components/AuthImagePattern";
+import { Loader2, MessageSquare, Phone, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Eye, EyeOff, Loader2, Lock, Mail, MessageSquare } from "lucide-react";
+import AuthImagePattern from "../components/AuthImagePattern";
+import toast from "react-hot-toast";
 
 const LoginPage = () => {
-  const [showPassword, setShowPassword] = useState(false);
+  const [step, setStep] = useState("phone");
   const [formData, setFormData] = useState({
-    email: "",
-    password: "",
+    phoneNumber: "",
+    otp: "",
   });
-  const { login, isLoggingIn } = useAuthStore();
+  const { requestOtp, verifyOtp, isRequestingOtp, isVerifyingOtp } = useAuthStore();
 
-  const handleSubmit = async (e) => {
+  const handlePhoneSubmit = async (e) => {
     e.preventDefault();
-    login(formData);
+    if (!formData.phoneNumber.trim()) {
+      toast.error("Phone number is required");
+      return;
+    }
+    const success = await requestOtp(formData.phoneNumber);
+    if (success) setStep("otp");
+  };
+
+  const handleOtpSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.otp.trim()) {
+      toast.error("OTP is required");
+      return;
+    }
+    await verifyOtp({
+      phoneNumber: formData.phoneNumber,
+      otp: formData.otp,
+    });
+  };
+
+  const handleBack = () => {
+    setStep("phone");
+    setFormData({ ...formData, otp: "" });
   };
 
   return (
@@ -31,71 +54,81 @@ const LoginPage = () => {
               >
                 <MessageSquare className="w-6 h-6 text-primary" />
               </div>
-              <h1 className="text-2xl font-bold mt-2">Welcome Back</h1>
-              <p className="text-base-content/60">Sign in to your account</p>
+              <h1 className="text-2xl font-bold mt-2">
+                {step === "phone" ? "Welcome Back" : "Verify OTP"}
+              </h1>
+              <p className="text-base-content/60">
+                {step === "phone"
+                  ? "Sign in with your phone number"
+                  : "Enter the code sent to your phone"}
+              </p>
             </div>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">Email</span>
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-base-content/40" />
+          {step === "phone" ? (
+            <form onSubmit={handlePhoneSubmit} className="space-y-6">
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium">Phone Number</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Phone className="h-5 w-5 text-base-content/40" />
+                  </div>
+                  <input
+                    type="tel"
+                    className="input input-bordered w-full pl-10"
+                    placeholder="+1234567890"
+                    value={formData.phoneNumber}
+                    onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                  />
                 </div>
+              </div>
+
+              <button type="submit" className="btn btn-primary w-full" disabled={isRequestingOtp}>
+                {isRequestingOtp ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Send OTP"
+                )}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleOtpSubmit} className="space-y-6">
+              <button type="button" onClick={handleBack} className="btn btn-ghost btn-sm gap-2 mb-4">
+                <ArrowLeft className="size-4" />
+                Back
+              </button>
+
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium">OTP Code</span>
+                </label>
                 <input
-                  type="email"
-                  className={`input input-bordered w-full pl-10`}
-                  placeholder="you@example.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  type="text"
+                  className="input input-bordered w-full"
+                  placeholder="123456"
+                  value={formData.otp}
+                  onChange={(e) => setFormData({ ...formData, otp: e.target.value })}
+                  maxLength={6}
                 />
               </div>
-            </div>
 
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">Password</span>
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-base-content/40" />
-                </div>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  className={`input input-bordered w-full pl-10`}
-                  placeholder="••••••••"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-base-content/40" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-base-content/40" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <button type="submit" className="btn btn-primary w-full" disabled={isLoggingIn}>
-              {isLoggingIn ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                "Sign in"
-              )}
-            </button>
-          </form>
+              <button type="submit" className="btn btn-primary w-full" disabled={isVerifyingOtp}>
+                {isVerifyingOtp ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  "Sign In"
+                )}
+              </button>
+            </form>
+          )}
 
           <div className="text-center">
             <p className="text-base-content/60">
@@ -110,8 +143,12 @@ const LoginPage = () => {
 
       {/* Right Side - Image/Pattern */}
       <AuthImagePattern
-        title={"Welcome back!"}
-        subtitle={"Sign in to continue your conversations and catch up with your messages."}
+        title={step === "phone" ? "Welcome back!" : "Almost there!"}
+        subtitle={
+          step === "phone"
+            ? "Sign in to continue your conversations and catch up with your messages."
+            : "Just one more step to start chatting."
+        }
       />
     </div>
   );
