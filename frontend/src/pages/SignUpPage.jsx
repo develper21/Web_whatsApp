@@ -1,37 +1,46 @@
 import { useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
-import { Eye, EyeOff, Loader2, Lock, Mail, MessageSquare, User } from "lucide-react";
+import { Loader2, MessageSquare, Phone, User, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import AuthImagePattern from "../components/AuthImagePattern";
 import toast from "react-hot-toast";
 
 const SignUpPage = () => {
-  const [showPassword, setShowPassword] = useState(false);
+  const [step, setStep] = useState("phone"); // "phone" | "otp"
   const [formData, setFormData] = useState({
+    phoneNumber: "",
+    otp: "",
     fullName: "",
-    email: "",
-    password: "",
   });
+  const { requestOtp, verifyOtp, isRequestingOtp, isVerifyingOtp } = useAuthStore();
 
-  const { signup, isSigningUp } = useAuthStore();
-
-  const validateForm = () => {
-    if (!formData.fullName.trim()) return toast.error("Full name is required");
-    if (!formData.email.trim()) return toast.error("Email is required");
-    if (!/\S+@\S+\.\S+/.test(formData.email)) return toast.error("Invalid email format");
-    if (!formData.password) return toast.error("Password is required");
-    if (formData.password.length < 6) return toast.error("Password must be at least 6 characters");
-
-    return true;
+  const handlePhoneSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.phoneNumber.trim()) {
+      toast.error("Phone number is required");
+      return;
+    }
+    const success = await requestOtp(formData.phoneNumber);
+    if (success) setStep("otp");
   };
 
-  const handleSubmit = (e) => {
+  const handleOtpSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.otp.trim()) {
+      toast.error("OTP is required");
+      return;
+    }
+    await verifyOtp({
+      phoneNumber: formData.phoneNumber,
+      otp: formData.otp,
+      fullName: formData.fullName.trim(),
+    });
+  };
 
-    const success = validateForm();
-
-    if (success === true) signup(formData);
+  const handleBack = () => {
+    setStep("phone");
+    setFormData({ ...formData, otp: "" });
   };
 
   return (
@@ -48,88 +57,99 @@ const SignUpPage = () => {
               >
                 <MessageSquare className="size-6 text-primary" />
               </div>
-              <h1 className="text-2xl font-bold mt-2">Create Account</h1>
-              <p className="text-base-content/60">Get started with your free account</p>
+              <h1 className="text-2xl font-bold mt-2">
+                {step === "phone" ? "Create Account" : "Verify OTP"}
+              </h1>
+              <p className="text-base-content/60">
+                {step === "phone"
+                  ? "Get started with your free account"
+                  : "Enter the code sent to your phone"}
+              </p>
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">Full Name</span>
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="size-5 text-base-content/40" />
+          {step === "phone" ? (
+            <form onSubmit={handlePhoneSubmit} className="space-y-6">
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium">Phone Number</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Phone className="size-5 text-base-content/40" />
+                  </div>
+                  <input
+                    type="tel"
+                    className="input input-bordered w-full pl-10"
+                    placeholder="+1234567890"
+                    value={formData.phoneNumber}
+                    onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                  />
                 </div>
+              </div>
+
+              <button type="submit" className="btn btn-primary w-full" disabled={isRequestingOtp}>
+                {isRequestingOtp ? (
+                  <>
+                    <Loader2 className="size-5 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Send OTP"
+                )}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleOtpSubmit} className="space-y-6">
+              <button type="button" onClick={handleBack} className="btn btn-ghost btn-sm gap-2 mb-4">
+                <ArrowLeft className="size-4" />
+                Back
+              </button>
+
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium">OTP Code</span>
+                </label>
                 <input
                   type="text"
-                  className={`input input-bordered w-full pl-10`}
-                  placeholder="John Doe"
-                  value={formData.fullName}
-                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                  className="input input-bordered w-full"
+                  placeholder="123456"
+                  value={formData.otp}
+                  onChange={(e) => setFormData({ ...formData, otp: e.target.value })}
+                  maxLength={6}
                 />
               </div>
-            </div>
 
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">Email</span>
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="size-5 text-base-content/40" />
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium">Full Name (optional)</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="size-5 text-base-content/40" />
+                  </div>
+                  <input
+                    type="text"
+                    className="input input-bordered w-full pl-10"
+                    placeholder="John Doe"
+                    value={formData.fullName}
+                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                  />
                 </div>
-                <input
-                  type="email"
-                  className={`input input-bordered w-full pl-10`}
-                  placeholder="you@example.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
               </div>
-            </div>
 
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">Password</span>
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="size-5 text-base-content/40" />
-                </div>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  className={`input input-bordered w-full pl-10`}
-                  placeholder="••••••••"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="size-5 text-base-content/40" />
-                  ) : (
-                    <Eye className="size-5 text-base-content/40" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <button type="submit" className="btn btn-primary w-full" disabled={isSigningUp}>
-              {isSigningUp ? (
-                <>
-                  <Loader2 className="size-5 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                "Create Account"
-              )}
-            </button>
-          </form>
+              <button type="submit" className="btn btn-primary w-full" disabled={isVerifyingOtp}>
+                {isVerifyingOtp ? (
+                  <>
+                    <Loader2 className="size-5 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  "Create Account"
+                )}
+              </button>
+            </form>
+          )}
 
           <div className="text-center">
             <p className="text-base-content/60">
@@ -145,8 +165,12 @@ const SignUpPage = () => {
       {/* right side */}
 
       <AuthImagePattern
-        title="Join our community"
-        subtitle="Connect with friends, share moments, and stay in touch with your loved ones."
+        title={step === "phone" ? "Join our community" : "Almost there!"}
+        subtitle={
+          step === "phone"
+            ? "Connect with friends, share moments, and stay in touch with your loved ones."
+            : "Just one more step to start chatting with your friends."
+        }
       />
     </div>
   );
