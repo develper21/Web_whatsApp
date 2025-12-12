@@ -1,4 +1,4 @@
-import { Box } from "@chakra-ui/react";
+import Box from "@mui/material/Box";
 import { useMemo } from "react";
 import { AuthView } from "./components/auth/AuthView";
 import { ChatView } from "./components/chat/ChatView";
@@ -15,7 +15,7 @@ function App() {
   }, [user]);
 
   return (
-    <Box minH="100vh" className="bg-transparent">
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       {content}
     </Box>
   );
