@@ -1,70 +1,85 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import TextField from "@mui/material/TextField";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import Avatar from "@mui/material/Avatar";
+import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
 import { IoSend } from "react-icons/io5";
-import { LuPaperclip } from "react-icons/lu";
+import { LuPaperclip, LuPhone, LuVideo, LuArrowLeft } from "react-icons/lu";
 import dayjs from "../../lib/dayjs";
 
 const AttachmentList = ({ attachments = [], isOwn }) => {
   if (!attachments.length) return null;
   return (
-    <VStack align="stretch" spacing={2} mt={2}>
+    <Stack spacing={1} mt={1}>
       {attachments.map((file) => {
         const isImage = file.type?.startsWith("image/");
         return isImage ? (
-          <Image
+          <Box
             key={file.url}
+            component="img"
             src={file.url}
             alt={file.originalName}
-            borderRadius="lg"
-            maxH="260px"
-            objectFit="cover"
-            borderWidth="1px"
-            borderColor={isOwn ? "whiteAlpha.300" : "gray.200"}
+            sx={{
+              borderRadius: 2,
+              maxHeight: 260,
+              objectFit: 'cover',
+              border: 1,
+              borderColor: isOwn ? 'rgba(255,255,255,0.3)' : 'grey.200',
+            }}
           />
         ) : (
-          <Link
+          <Box
             key={file.url}
+            component="a"
             href={file.url}
             target="_blank"
             rel="noopener noreferrer"
-            color={isOwn ? "white" : "brand.600"}
-            fontWeight="semibold"
+            sx={{
+              color: isOwn ? 'white' : 'primary.main',
+              fontWeight: 600,
+              textDecoration: 'none',
+              '&:hover': { textDecoration: 'underline' },
+            }}
           >
             {file.originalName || file.url}
-          </Link>
+          </Box>
         );
       })}
-    </VStack>
+    </Stack>
   );
 };
 
 const MessageBubble = ({ message, isOwn }) => (
   <Box
-    alignSelf={isOwn ? "flex-end" : "flex-start"}
-    bg={isOwn ? "brand.500" : "gray.100"}
-    color={isOwn ? "white" : "gray.800"}
-    px={4}
-    py={3}
-    borderRadius="2xl"
-    maxW="80%"
-    boxShadow="soft"
+    sx={{
+      alignSelf: isOwn ? 'flex-end' : 'flex-start',
+      bgcolor: isOwn ? 'primary.main' : 'grey.100',
+      color: isOwn ? 'white' : 'grey.800',
+      px: 2,
+      py: 1.5,
+      borderRadius: 4,
+      maxWidth: '80%',
+      boxShadow: 1,
+    }}
   >
-    {message.content && <Text>{message.content}</Text>}
+    {message.content && <Typography>{message.content}</Typography>}
     <AttachmentList attachments={message.attachments} isOwn={isOwn} />
-    <HStack justify="flex-end" spacing={2} mt={2}>
-      <Text fontSize="xs" color={isOwn ? "whiteAlpha.700" : "gray.500"}>
+    <Stack direction="row" justifyContent="flex-end" spacing={1} mt={1}>
+      <Typography variant="caption" sx={{ color: isOwn ? 'rgba(255,255,255,0.7)' : 'grey.500' }}>
         {dayjs(message.createdAt).format("HH:mm")}
-      </Text>
+      </Typography>
       {message.status === "pending" && (
-        <Badge colorScheme="yellow" variant="subtle">
-          Sending…
-        </Badge>
+        <Chip label="Sending…" color="warning" size="small" variant="outlined" />
       )}
       {message.status === "delivered" && (
-        <Badge colorScheme="green" variant="subtle">
-          Sent
-        </Badge>
+        <Chip label="Sent" color="success" size="small" variant="outlined" />
       )}
-    </HStack>
+    </Stack>
   </Box>
 );
 
@@ -99,14 +114,14 @@ const MessageComposer = ({ onSend, onTyping, disabled }) => {
   };
 
   return (
-    <HStack as="form" onSubmit={handleSubmit} spacing={3}>
+    <Stack component="form" onSubmit={handleSubmit} direction="row" spacing={1}>
       <IconButton
         aria-label="Attach files"
-        icon={<LuPaperclip />}
-        variant="ghost"
         onClick={() => fileInputRef.current?.click()}
-        isDisabled={disabled}
-      />
+        disabled={disabled}
+      >
+        <LuPaperclip />
+      </IconButton>
       <input
         ref={fileInputRef}
         type="file"
@@ -114,23 +129,26 @@ const MessageComposer = ({ onSend, onTyping, disabled }) => {
         style={{ display: "none" }}
         onChange={(e) => setFiles(Array.from(e.target.files || []))}
       />
-      <Input
+      <TextField
         placeholder="Type a message"
         value={value}
         onChange={handleChange}
-        borderRadius="full"
-        bg="white"
         disabled={disabled}
+        fullWidth
+        size="small"
+        sx={{ bgcolor: 'background.paper', borderRadius: 8 }}
       />
       {files.length > 0 && (
-        <Badge colorScheme="blue" variant="subtle">
-          {files.length} file{files.length > 1 ? "s" : ""}
-        </Badge>
+        <Chip
+          label={`${files.length} file${files.length > 1 ? "s" : ""}`}
+          color="primary"
+          size="small"
+        />
       )}
-      <Button type="submit" colorScheme="brand" borderRadius="full" disabled={disabled}>
+      <Button type="submit" variant="contained" disabled={disabled} sx={{ borderRadius: 8 }}>
         Send
       </Button>
-    </HStack>
+    </Stack>
   );
 };
 
@@ -173,50 +191,54 @@ export const ChatWindow = ({
 
   if (!room) {
     return (
-      <Flex flex="1" align="center" justify="center" direction="column" color="gray.500">
-        <Text fontSize="xl" fontWeight="semibold">
+      <Stack flex={1} alignItems="center" justifyContent="center" color="text.secondary">
+        <Typography variant="h5" fontWeight="semibold">
           Select a chat to get started
-        </Text>
-        <Text>Browse the sidebar to choose a conversation.</Text>
-      </Flex>
+        </Typography>
+        <Typography>Browse the sidebar to choose a conversation.</Typography>
+      </Stack>
     );
   }
 
   return (
-    <Flex flex="1" direction="column" bg="whiteAlpha.900" p={6} gap={6}>
-      <HStack justify="space-between" borderBottomWidth="1px" borderColor="gray.100" pb={4}>
-        <HStack spacing={3}>
-          <Avatar size="md" name={header.title} src={header.avatar} />
+    <Stack flex={1} sx={{ bgcolor: 'background.paper', p: 3 }} spacing={3}>
+      <Stack direction="row" justifyContent="space-between" sx={{ borderBottom: 1, borderColor: 'grey.100', pb: 2 }}>
+        <Stack direction="row" spacing={2}>
+          <Avatar src={header.avatar} alt={header.title} />
           <Box>
-            <HStack spacing={2}>
-              <Text fontWeight="bold">{header.title}</Text>
-              {header.online && <Badge colorScheme="green">Online</Badge>}
-            </HStack>
-            <Text color="gray.500" fontSize="sm">
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography fontWeight="bold">{header.title}</Typography>
+              {header.online && <Chip label="Online" color="success" size="small" />}
+            </Stack>
+            <Typography color="text.secondary" variant="body2">
               {header.status}
-            </Text>
+            </Typography>
           </Box>
-        </HStack>
-        <HStack spacing={2}>
+        </Stack>
+        <Stack direction="row" spacing={1}>
           {onBack && (
             <IconButton
               aria-label="Back"
-              icon={<LuArrowLeft />}
-              display={{ base: "inline-flex", md: "none" }}
-              variant="ghost"
+              sx={{ display: { xs: 'inline-flex', md: 'none' } }}
               onClick={onBack}
-            />
+            >
+              <LuArrowLeft />
+            </IconButton>
           )}
-          <IconButton aria-label="Voice Call" icon={<LuPhone />} variant="ghost" />
-          <IconButton aria-label="Video Call" icon={<LuVideo />} variant="ghost" />
-        </HStack>
-      </HStack>
+          <IconButton aria-label="Voice Call">
+            <LuPhone />
+          </IconButton>
+          <IconButton aria-label="Video Call">
+            <LuVideo />
+          </IconButton>
+        </Stack>
+      </Stack>
 
-      <VStack flex="1" align="stretch" spacing={4} overflowY="auto" pr={2}>
+      <Stack flex={1} spacing={2} sx={{ overflowY: 'auto', pr: 1 }}>
         {loading ? (
-          <Flex flex="1" align="center" justify="center">
-            <Spinner size="lg" />
-          </Flex>
+          <Stack flex={1} alignItems="center" justifyContent="center">
+            <CircularProgress />
+          </Stack>
         ) : (
           <>
             {messages.map((message) => (
@@ -229,12 +251,12 @@ export const ChatWindow = ({
             <Box ref={scrollRef} />
           </>
         )}
-      </VStack>
+      </Stack>
 
       {!!typingUsers.length && (
-        <Text color="brand.500" fontSize="sm">
+        <Typography color="primary.main" variant="body2">
           {typingUsers.join(", ")} {typingUsers.length > 1 ? "are" : "is"} typing...
-        </Text>
+        </Typography>
       )}
 
       <MessageComposer
@@ -242,6 +264,6 @@ export const ChatWindow = ({
         onTyping={onTyping}
         disabled={!room || loading}
       />
-    </Flex>
+    </Stack>
   );
 };
