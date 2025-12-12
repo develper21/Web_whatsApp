@@ -1,4 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Paper from "@mui/material/Paper";
+import TextField from "@mui/material/TextField";
+import Button from "@mui/material/Button";
 import { LuMenu } from "react-icons/lu";
 import { useAuthStore } from "../../state/authStore";
 import { useChatStore } from "../../state/chatStore";
@@ -27,54 +32,63 @@ export const ChatView = () => {
   );
 
   return (
-    <div className="h-screen flex flex-col">
-      <div className="flex flex-1 overflow-hidden">
-        <div
-          className={`${mobileView === "sidebar" ? "block" : "hidden"} md:block w-80 bg-white border-r`}
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <Box
+          sx={{
+            display: { xs: mobileView === "sidebar" ? 'block' : 'none', md: 'block' },
+            width: 320,
+            bgcolor: 'background.paper',
+            borderRight: 1,
+            borderColor: 'divider',
+          }}
         >
-          <div className="p-4 border-b">
-            <h2 className="text-lg font-semibold">AlgoChat</h2>
-            <p className="text-sm text-gray-500">Real-time messaging</p>
-          </div>
-          <div className="p-4">
-            <p className="text-gray-500 text-center">Sidebar content</p>
-          </div>
-        </div>
-        <div
-          className={`flex-1 ${mobileView === "chat" ? "block" : "hidden"} md:block`}
+          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+            <Typography variant="h6" fontWeight="semibold">AlgoChat</Typography>
+            <Typography variant="body2" color="text.secondary">Real-time messaging</Typography>
+          </Box>
+          <Box sx={{ p: 2 }}>
+            <Typography color="text.secondary" textAlign="center">Sidebar content</Typography>
+          </Box>
+        </Box>
+        <Box
+          sx={{
+            flex: 1,
+            display: { xs: mobileView === "chat" ? 'block' : 'none', md: 'block' },
+          }}
         >
           {selectedRoom ? (
-            <div className="h-full flex flex-col">
-              <div className="p-4 border-b bg-white">
-                <h3 className="font-semibold">{selectedRoom.name}</h3>
-                <p className="text-sm text-gray-500">Chat room</p>
-              </div>
-              <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
-                <p className="text-gray-500 text-center">Messages will appear here</p>
-              </div>
-              <div className="p-4 border-t bg-white">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
+            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Paper sx={{ p: 2, borderBottom: 1, borderColor: 'divider', borderRadius: 0 }}>
+                <Typography variant="h6" fontWeight="semibold">{selectedRoom.name}</Typography>
+                <Typography variant="body2" color="text.secondary">Chat room</Typography>
+              </Paper>
+              <Box sx={{ flex: 1, p: 2, overflowY: 'auto', bgcolor: 'grey.50' }}>
+                <Typography color="text.secondary" textAlign="center">Messages will appear here</Typography>
+              </Box>
+              <Paper sx={{ p: 2, borderTop: 1, borderColor: 'divider', borderRadius: 0 }}>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <TextField
                     placeholder="Type a message..."
-                    className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    size="small"
+                    fullWidth
                   />
-                  <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
-                    Send
-                  </button>
-                </div>
-              </div>
-            </div>
+                  <Button variant="contained">Send</Button>
+                </Box>
+              </Paper>
+            </Box>
           ) : (
-            <div className="h-full flex items-center justify-center bg-gray-50">
-              <div className="text-center">
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">Welcome to AlgoChat</h3>
-                <p className="text-gray-500">Select a room to start chatting</p>
-              </div>
-            </div>
+            <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'grey.50' }}>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="h6" fontWeight="semibold" color="text.primary" mb={1}>
+                  Welcome to AlgoChat
+                </Typography>
+                <Typography color="text.secondary">Select a room to start chatting</Typography>
+              </Box>
+            </Box>
           )}
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Box>
+    </Box>
   );
 };
