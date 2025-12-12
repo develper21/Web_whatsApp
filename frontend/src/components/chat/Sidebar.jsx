@@ -1,3 +1,16 @@
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import TextField from "@mui/material/TextField";
+import IconButton from "@mui/material/IconButton";
+import Avatar from "@mui/material/Avatar";
+import Chip from "@mui/material/Chip";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemAvatar from "@mui/material/ListItemAvatar";
+import ListItemText from "@mui/material/ListItemText";
+import CircularProgress from "@mui/material/CircularProgress";
 import { LuLogOut, LuMessageSquarePlus, LuSettings } from "react-icons/lu";
 import dayjs from "../../lib/dayjs";
 import { useMemo, useState } from "react";
@@ -25,93 +38,97 @@ export const Sidebar = ({
   }, [query, rooms, user?._id]);
 
   return (
-    <div className="h-full flex flex-col bg-white">
-      <div className="p-4 border-b">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
-              <span className="text-sm text-gray-500">{user?.name[0]}</span>
-            </div>
-            <div>
-              <h3 className="font-semibold">{user?.name}</h3>
-              <p className="text-sm text-gray-500">Online</p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={onNewChat} className="p-2 text-gray-500 hover:text-gray-700">
+    <Stack sx={{ height: '100%', bgcolor: 'background.paper' }}>
+      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Avatar sx={{ bgcolor: 'grey.300' }}>
+              {user?.name?.[0]}
+            </Avatar>
+            <Box>
+              <Typography variant="subtitle1" fontWeight="semibold">{user?.name}</Typography>
+              <Typography variant="caption" color="text.secondary">Online</Typography>
+            </Box>
+          </Stack>
+          <Stack direction="row" spacing={0.5}>
+            <IconButton onClick={onNewChat} size="small">
               <LuMessageSquarePlus />
-            </button>
-            <button onClick={onOpenProfile} className="p-2 text-gray-500 hover:text-gray-700">
+            </IconButton>
+            <IconButton onClick={onOpenProfile} size="small">
               <LuSettings />
-            </button>
-            <button onClick={onLogout} className="p-2 text-gray-500 hover:text-gray-700">
+            </IconButton>
+            <IconButton onClick={onLogout} size="small">
               <LuLogOut />
-            </button>
-          </div>
-        </div>
-      </div>
+            </IconButton>
+          </Stack>
+        </Stack>
+      </Box>
 
-      <div className="p-4 border-b">
-        <input
+      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <TextField
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Search chats..."
+          size="small"
+          fullWidth
         />
-      </div>
+      </Box>
 
-      <div className="flex-1 overflow-y-auto">
+      <Box sx={{ flex: 1, overflowY: 'auto' }}>
         {loading ? (
-          <div className="p-4 text-center text-gray-500">
-            Loading rooms...
-          </div>
+          <Box sx={{ p: 2, textAlign: 'center' }}>
+            <CircularProgress size={24} />
+          </Box>
         ) : filtered.length === 0 ? (
-          <div className="p-4 text-center text-gray-500">
-            {query ? "No rooms found" : "No rooms yet"}
-          </div>
+          <Box sx={{ p: 2, textAlign: 'center' }}>
+            <Typography color="text.secondary">
+              {query ? "No rooms found" : "No rooms yet"}
+            </Typography>
+          </Box>
         ) : (
-          <div className="p-4 space-y-2">
+          <List>
             {filtered.map((room) => (
-              <div
-                key={room._id}
-                onClick={() => onSelectRoom(room._id)}
-                className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                  selectedRoomId === room._id
-                    ? "bg-blue-50 border border-blue-200"
-                    : "hover:bg-gray-50"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
-                      <span className="text-sm text-gray-500">
-                        {room.name[0]}
-                      </span>
-                    </div>
-                    <div>
-                      <h4 className="font-medium">{room.name}</h4>
-                      <p className="text-sm text-gray-500">
-                        {room.isGroup ? `${room.members?.length || 0} members` : "Direct message"}
-                      </p>
-                    </div>
-                  </div>
-                  {room.isGroup && (
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                      Group
-                    </span>
-                  )}
-                </div>
-                {room.latestMessage && (
-                  <div className="mt-2 text-sm text-gray-500 truncate">
-                    {room.latestMessage.content}
-                  </div>
-                )}
-              </div>
+              <ListItem key={room._id} disablePadding>
+                <ListItemButton
+                  onClick={() => onSelectRoom(room._id)}
+                  selected={selectedRoomId === room._id}
+                >
+                  <ListItemAvatar>
+                    <Avatar sx={{ bgcolor: 'grey.300' }}>
+                      {room.name?.[0]}
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography variant="subtitle2" fontWeight="medium">
+                          {room.name}
+                        </Typography>
+                        {room.isGroup && (
+                          <Chip label="Group" color="primary" size="small" />
+                        )}
+                      </Stack>
+                    }
+                    secondary={
+                      <>
+                        <Typography variant="caption" color="text.secondary">
+                          {room.isGroup ? `${room.members?.length || 0} members` : "Direct message"}
+                        </Typography>
+                        {room.latestMessage && (
+                          <Typography variant="body2" color="text.secondary" noWrap>
+                            {room.latestMessage.content}
+                          </Typography>
+                        )}
+                      </>
+                    }
+                  />
+                </ListItemButton>
+              </ListItem>
             ))}
-          </div>
+          </List>
         )}
-      </div>
-    </div>
+      </Box>
+    </Stack>
   );
 };
