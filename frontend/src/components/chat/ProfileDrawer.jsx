@@ -1,4 +1,13 @@
 import { useRef, useState } from "react";
+import Box from "@mui/material/Box";
+import Drawer from "@mui/material/Drawer";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import TextField from "@mui/material/TextField";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import Avatar from "@mui/material/Avatar";
+import { LuX } from "react-icons/lu";
 import { useAuthStore } from "../../state/authStore";
 
 const fileToBase64 = (file) =>
@@ -36,62 +45,68 @@ export const ProfileDrawer = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div open={isOpen} onClose={onClose} style={{ display: isOpen ? "block" : "none" }}>
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={onClose} />
-      <div className="fixed inset-0 flex items-center justify-center z-50">
-        <div className="bg-white h-full w-80 max-w-sm shadow-xl overflow-auto">
-          <div className="relative flex items-center justify-center p-4 border-b">
-            <button onClick={onClose} className="absolute left-4 text-gray-500 hover:text-gray-700">
-              ×
-            </button>
-            <p className="font-bold">Profile</p>
-          </div>
-          <div className="p-6">
-            <div className="space-y-6">
-              <div className="text-center">
-                <div className="w-32 h-32 mx-auto rounded-full bg-gray-300 flex items-center justify-center">
-                  <span className="text-gray-500">Avatar</span>
-                </div>
-                <button
-                  className="mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-                  onClick={() => fileInput.current?.click()}
-                >
-                  Upload photo
-                </button>
-                <input type="file" ref={fileInput} className="hidden" accept="image/*" onChange={handleUpload} />
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="profile-name" className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                  <input
-                    id="profile-name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="profile-avatar" className="block text-sm font-medium text-gray-700 mb-1">Avatar URL</label>
-                  <input
-                    id="profile-avatar"
-                    value={avatar}
-                    onChange={(e) => setAvatar(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="border-t p-4 flex justify-end gap-3">
-            <button onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-              Cancel
-            </button>
-            <button onClick={handleSave} disabled={profileUpdating} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50">
+    <Drawer anchor="right" open={isOpen} onClose={onClose}>
+      <Box sx={{ width: 320, height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', position: 'relative', textAlign: 'center' }}>
+          <IconButton
+            onClick={onClose}
+            sx={{ position: 'absolute', left: 8, top: 8 }}
+            size="small"
+          >
+            <LuX />
+          </IconButton>
+          <Typography variant="h6" fontWeight="bold">Profile</Typography>
+        </Box>
+        <Box sx={{ p: 3, flex: 1 }}>
+          <Stack spacing={3}>
+            <Box sx={{ textAlign: 'center' }}>
+              <Avatar
+                src={avatar}
+                sx={{ width: 128, height: 128, mx: 'auto', mb: 2, bgcolor: 'grey.300' }}
+              >
+                {!avatar && name?.[0]}
+              </Avatar>
+              <Button
+                variant="outlined"
+                onClick={() => fileInput.current?.click()}
+              >
+                Upload photo
+              </Button>
+              <input
+                type="file"
+                ref={fileInput}
+                style={{ display: 'none' }}
+                accept="image/*"
+                onChange={handleUpload}
+              />
+            </Box>
+            <TextField
+              label="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              fullWidth
+            />
+            <TextField
+              label="Avatar URL"
+              value={avatar}
+              onChange={(e) => setAvatar(e.target.value)}
+              fullWidth
+            />
+          </Stack>
+        </Box>
+        <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+          <Stack direction="row" spacing={1} justifyContent="flex-end">
+            <Button onClick={onClose}>Cancel</Button>
+            <Button
+              onClick={handleSave}
+              disabled={profileUpdating}
+              variant="contained"
+            >
               Save
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+            </Button>
+          </Stack>
+        </Box>
+      </Box>
+    </Drawer>
   );
 };
