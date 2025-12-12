@@ -1,5 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
-import { LuUserPlus, LuUsers } from "react-icons/lu";
+import Box from "@mui/material/Box";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import TextField from "@mui/material/TextField";
+import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemAvatar from "@mui/material/ListItemAvatar";
+import ListItemText from "@mui/material/ListItemText";
+import Avatar from "@mui/material/Avatar";
+import Chip from "@mui/material/Chip";
+import Typography from "@mui/material/Typography";
+import CircularProgress from "@mui/material/CircularProgress";
+import Divider from "@mui/material/Divider";
+import Stack from "@mui/material/Stack";
+import { LuUserPlus } from "react-icons/lu";
 import { useChatStore } from "../../state/chatStore";
 import { useAuthStore } from "../../state/authStore";
 import { useDebounce } from "../../hooks/useDebounce";
@@ -77,93 +97,96 @@ export const NewChatModal = ({ isOpen, onClose, onRoomCreated }) => {
   };
 
   return (
-    <div open={isOpen} onClose={onClose} style={{ display: isOpen ? "block" : "none" }}>
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={onClose} />
-      <div className="fixed inset-0 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-auto">
-          <div className="border-b px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <LuUserPlus />
-              <span>Start a conversation</span>
-            </div>
-            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-              ×
-            </button>
-          </div>
-          <div className="p-6">
-            <div className="space-y-4">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={isGroup}
-                  onChange={(e) => setIsGroup(e.target.checked)}
-                />
-                <span>Create group chat</span>
-              </label>
-              {isGroup && (
-                <input
-                  placeholder="Group name"
-                  value={groupName}
-                  onChange={(e) => setGroupName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              )}
-              <hr className="my-4 border-gray-200" />
-              <input
-                placeholder="Search users..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+    <Dialog open={isOpen} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <LuUserPlus />
+          <Typography variant="h6">Start a conversation</Typography>
+        </Stack>
+      </DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={isGroup}
+                onChange={(e) => setIsGroup(e.target.checked)}
               />
-              {searchingUsers && <div className="text-sm text-gray-500">Searching...</div>}
-              {userSearchResults.length > 0 ? (
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {userSearchResults.map((u) => (
-                    <div
-                      key={u._id}
-                      className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-gray-100"
-                      onClick={() => toggleSelect(u._id)}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selected.includes(u._id)}
-                        onChange={() => toggleSelect(u._id)}
-                      />
-                      <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
-                        <span className="text-xs text-gray-500">{u.name[0]}</span>
-                      </div>
-                      <span>{u.name}</span>
-                      {u.onlineStatus && <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Online</span>}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center text-gray-500 py-8">
-                  {query ? "No users found" : "Search to find teammates"}
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="border-t px-6 py-4 flex justify-end gap-3">
-            <button onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-              Cancel
-            </button>
-            {isGroup ? (
-              <button onClick={handleCreateGroup} disabled={roomActionLoading} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50">
-                Create Group
-              </button>
-            ) : (
-              <button
-                onClick={() => selected[0] && handleDirectStart(selected[0])}
-                disabled={roomActionLoading}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
-              >
-                Start Chat
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+            }
+            label="Create group chat"
+          />
+          {isGroup && (
+            <TextField
+              placeholder="Group name"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              fullWidth
+            />
+          )}
+          <Divider />
+          <TextField
+            placeholder="Search users..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            fullWidth
+          />
+          {searchingUsers && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+              <CircularProgress size={24} />
+            </Box>
+          )}
+          {userSearchResults.length > 0 ? (
+            <List sx={{ maxHeight: 240, overflowY: 'auto' }}>
+              {userSearchResults.map((u) => (
+                <ListItem key={u._id} disablePadding>
+                  <ListItemButton onClick={() => toggleSelect(u._id)}>
+                    <Checkbox
+                      checked={selected.includes(u._id)}
+                      onChange={() => toggleSelect(u._id)}
+                      sx={{ mr: 1 }}
+                    />
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: 'grey.300' }}>
+                        {u.name?.[0]}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText primary={u.name} />
+                    {u.onlineStatus && (
+                      <Chip label="Online" color="success" size="small" />
+                    )}
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          ) : (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography color="text.secondary">
+                {query ? "No users found" : "Search to find teammates"}
+              </Typography>
+            </Box>
+          )}
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        {isGroup ? (
+          <Button
+            onClick={handleCreateGroup}
+            disabled={roomActionLoading || selected.length < 2 || !groupName.trim()}
+            variant="contained"
+          >
+            Create Group
+          </Button>
+        ) : (
+          <Button
+            onClick={() => selected[0] && handleDirectStart(selected[0])}
+            disabled={roomActionLoading || selected.length === 0}
+            variant="contained"
+          >
+            Start Chat
+          </Button>
+        )}
+      </DialogActions>
+    </Dialog>
   );
 };
