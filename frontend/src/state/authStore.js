@@ -19,7 +19,23 @@ const readPersisted = () => {
   const stored = localStorage.getItem("algonive-auth");
   if (!stored) return null;
   try {
-    return JSON.parse(stored);
+    const data = JSON.parse(stored);
+    // Check if token is expired
+    if (data.accessToken) {
+      try {
+        const tokenPayload = JSON.parse(atob(data.accessToken.split('.')[1]));
+        if (tokenPayload.exp && tokenPayload.exp * 1000 < Date.now()) {
+          console.log("Token expired, clearing auth data");
+          localStorage.removeItem("algonive-auth");
+          return null;
+        }
+      } catch (e) {
+        console.log("Invalid token format, clearing auth data");
+        localStorage.removeItem("algonive-auth");
+        return null;
+      }
+    }
+    return data;
   } catch {
     return null;
   }
@@ -87,6 +103,35 @@ export const useAuthStore = create((set, get) => ({
     setAuthToken("");
     useChatStore.getState().reset();
     set({ user: null, accessToken: "", refreshToken: "" });
+  },
+
+  refreshToken: async () => {
+    const { refreshToken } = get();
+    console.log("Attempting to refresh token, refresh token exists:", !!refreshToken);
+    
+    if (!refreshToken) {
+      console.log("No refresh token available, logging out");
+      get().logout();
+      throw new Error("No refresh token available");
+    }
+
+    try {
+      console.log("Sending refresh token request");
+      const { data } = await api.post("/auth/refresh", { refreshToken });
+      console.log("Refresh successful, new tokens received");
+      persistUser(data.user, data);
+      setAuthToken(data.accessToken);
+      set({
+        user: data.user,
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+      });
+      return data.accessToken;
+    } catch (error) {
+      console.error("Refresh token failed:", error.response?.data || error.message);
+      get().logout();
+      throw error;
+    }
   },
 
   updateProfile: async (payload) => {
