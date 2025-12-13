@@ -21,6 +21,32 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        const { useAuthStore } = await import("../state/authStore");
+        const newToken = await useAuthStore.getState().refreshToken();
+        accessToken = newToken;
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        // Refresh failed, user needs to login again
+        const { useAuthStore } = await import("../state/authStore");
+        useAuthStore.getState().logout();
+        return Promise.reject(refreshError);
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
 export default api;
 
 export const uploadAttachments = async (files = []) => {
