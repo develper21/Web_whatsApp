@@ -5,9 +5,9 @@ import { connectDB } from "./config/db.js";
 import { initSocket } from "./socket/index.js";
 
 dotenv.config();
-
-const PORT = process.env.PORT || 5000;
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+// #region Backend Handler
+const PORT = process.env.PORT;
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN;
 
 const startServer = async () => {
   try {

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+// #region DB Configure
 export const connectDB = async () => {
   const uri = process.env.MONGO_URI;
   if (!uri) {
