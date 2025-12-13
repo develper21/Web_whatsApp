@@ -3,6 +3,7 @@ import { User } from "../models/User.js";
 import {
   generateAccessToken,
   generateRefreshToken,
+  verifyRefreshToken,
 } from "../utils/token.js";
 
 const sanitizeUser = (userDoc) => {
@@ -85,5 +86,35 @@ export const login = async (req, res) => {
   } catch (error) {
     console.error("login error:", error);
     return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const refreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(400).json({ message: "Refresh token is required" });
+    }
+
+    const decoded = verifyRefreshToken(refreshToken);
+    const user = await User.findById(decoded.id);
+    
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    const payload = { id: user._id, email: user.email };
+    const newAccessToken = generateAccessToken(payload);
+    const newRefreshToken = generateRefreshToken(payload);
+
+    return res.json({
+      user: sanitizeUser(user),
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    });
+  } catch (error) {
+    console.error("refreshToken error:", error);
+    return res.status(401).json({ message: "Invalid refresh token" });
   }
 };
