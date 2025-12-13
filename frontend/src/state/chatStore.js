@@ -21,6 +21,8 @@ export const useChatStore = create((set, get) => ({
   searchingUsers: false,
   roomActionLoading: false,
   pendingMessages: {},
+  invitations: [],
+  loadingInvitations: false,
 
   setOnlineUsers: (payload) => {
     set((state) => {
@@ -55,7 +57,8 @@ export const useChatStore = create((set, get) => ({
       return data;
     } catch (error) {
       set({ loadingRooms: false });
-      throw error;
+      console.error("Failed to fetch rooms:", error);
+      return [];
     }
   },
 
@@ -168,6 +171,36 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  fetchInvitations: async () => {
+    set({ loadingInvitations: true });
+    try {
+      const { data } = await api.get("/invitations");
+      set({ invitations: data, loadingInvitations: false });
+      return data;
+    } catch (error) {
+      set({ loadingInvitations: false });
+      console.error("Failed to fetch invitations:", error);
+      return [];
+    }
+  },
+
+  respondToInvitation: async (invitationId, status) => {
+    try {
+      const { data } = await api.patch(`/invitations/${invitationId}/respond`, { status });
+      set((state) => ({
+        invitations: state.invitations.filter(inv => inv._id !== invitationId),
+      }));
+      
+      if (status === "accepted") {
+        await get().fetchRooms();
+      }
+      
+      return data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   reset: () =>
     set({
       rooms: [],
@@ -181,6 +214,8 @@ export const useChatStore = create((set, get) => ({
       searchingUsers: false,
       roomActionLoading: false,
       pendingMessages: {},
+      invitations: [],
+      loadingInvitations: false,
     }),
 }));
 
