@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
-import Paper from "@mui/material/Paper";
-import TextField from "@mui/material/TextField";
-import Button from "@mui/material/Button";
-import { LuMenu } from "react-icons/lu";
+import Stack from "@mui/material/Stack";
+import { Sidebar } from "./Sidebar";
+import { ChatWindow } from "./ChatWindow";
+import { NewChatModal } from "./NewChatModal";
+import { ProfileDrawer } from "./ProfileDrawer";
+import { InvitationsList, InvitationButton } from "./InvitationModal";
 import { useAuthStore } from "../../state/authStore";
 import { useChatStore } from "../../state/chatStore";
 import { disconnectSocket, getSocket, initSocket } from "../../lib/socket";
@@ -12,6 +13,8 @@ import { uploadAttachments } from "../../lib/apiClient";
 
 export const ChatView = () => {
   const [mobileView, setMobileView] = useState("sidebar");
+  const [newChatOpen, setNewChatOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const { user, logout } = useAuthStore();
   const {
     rooms,
@@ -20,16 +23,84 @@ export const ChatView = () => {
     selectedRoomId,
     selectRoom,
     messages,
-  } = useChatStore((state) => state);
+    loadingMessages,
+    invitations,
+    fetchInvitations,
+    respondToInvitation,
+  } = useChatStore();
 
   useEffect(() => {
-    fetchRooms();
-  }, [fetchRooms]);
+    if (user) {
+      fetchRooms();
+      fetchInvitations();
+      initSocket();
+    }
+    
+    return () => {
+      if (!user) {
+        disconnectSocket();
+      }
+    };
+  }, [fetchRooms, fetchInvitations, user]);
 
   const selectedRoom = useMemo(
     () => rooms.find((room) => room._id === selectedRoomId),
     [rooms, selectedRoomId]
   );
+
+  const selectedRoomMessages = messages[selectedRoomId] || [];
+
+  const handleNewChat = () => {
+    setNewChatOpen(true);
+  };
+
+  const handleOpenProfile = () => {
+    setProfileOpen(true);
+  };
+
+  const handleRoomCreated = () => {
+    fetchRooms();
+  };
+
+  const handleSelectRoom = (roomId) => {
+    selectRoom(roomId);
+    setMobileView("chat");
+  };
+
+  const handleLogout = () => {
+    disconnectSocket();
+    logout();
+  };
+
+  const handleBackToSidebar = () => {
+    setMobileView("sidebar");
+  };
+
+  const handleAcceptInvitation = async (invitationId) => {
+    try {
+      await respondToInvitation(invitationId, "accepted");
+      // Refresh rooms to get the newly created chat room
+      fetchRooms();
+    } catch (error) {
+      console.error("Failed to accept invitation:", error);
+    }
+  };
+
+  const handleRejectInvitation = async (invitationId) => {
+    try {
+      await respondToInvitation(invitationId, "rejected");
+    } catch (error) {
+      console.error("Failed to reject invitation:", error);
+    }
+  };
+
+  const handleShowInvitations = () => {
+    // Scroll to top to show invitations list
+    const invitationsList = document.querySelector('[data-invitations-list]');
+    if (invitationsList) {
+      invitationsList.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -43,13 +114,26 @@ export const ChatView = () => {
             borderColor: 'divider',
           }}
         >
-          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-            <Typography variant="h6" fontWeight="semibold">AlgoChat</Typography>
-            <Typography variant="body2" color="text.secondary">Real-time messaging</Typography>
-          </Box>
-          <Box sx={{ p: 2 }}>
-            <Typography color="text.secondary" textAlign="center">Sidebar content</Typography>
-          </Box>
+          <Stack sx={{ height: '100%' }}>
+            <InvitationsList
+              data-invitations-list
+              invitations={invitations}
+              onAccept={handleAcceptInvitation}
+              onReject={handleRejectInvitation}
+            />
+            <Sidebar
+              user={user}
+              rooms={rooms}
+              loading={loadingRooms}
+              selectedRoomId={selectedRoomId}
+              onSelectRoom={handleSelectRoom}
+              onLogout={handleLogout}
+              onOpenProfile={handleOpenProfile}
+              onNewChat={handleNewChat}
+              invitationCount={invitations.length}
+              onShowInvitations={handleShowInvitations}
+            />
+          </Stack>
         </Box>
         <Box
           sx={{
@@ -57,38 +141,26 @@ export const ChatView = () => {
             display: { xs: mobileView === "chat" ? 'block' : 'none', md: 'block' },
           }}
         >
-          {selectedRoom ? (
-            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <Paper sx={{ p: 2, borderBottom: 1, borderColor: 'divider', borderRadius: 0 }}>
-                <Typography variant="h6" fontWeight="semibold">{selectedRoom.name}</Typography>
-                <Typography variant="body2" color="text.secondary">Chat room</Typography>
-              </Paper>
-              <Box sx={{ flex: 1, p: 2, overflowY: 'auto', bgcolor: 'grey.50' }}>
-                <Typography color="text.secondary" textAlign="center">Messages will appear here</Typography>
-              </Box>
-              <Paper sx={{ p: 2, borderTop: 1, borderColor: 'divider', borderRadius: 0 }}>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <TextField
-                    placeholder="Type a message..."
-                    size="small"
-                    fullWidth
-                  />
-                  <Button variant="contained">Send</Button>
-                </Box>
-              </Paper>
-            </Box>
-          ) : (
-            <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'grey.50' }}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h6" fontWeight="semibold" color="text.primary" mb={1}>
-                  Welcome to AlgoChat
-                </Typography>
-                <Typography color="text.secondary">Select a room to start chatting</Typography>
-              </Box>
-            </Box>
-          )}
+          <ChatWindow
+            room={selectedRoom}
+            messages={selectedRoomMessages}
+            loading={loadingMessages}
+            currentUser={user}
+            onBack={handleBackToSidebar}
+            uploadAttachments={uploadAttachments}
+          />
         </Box>
       </Box>
+      <NewChatModal
+        isOpen={newChatOpen}
+        onClose={() => setNewChatOpen(false)}
+        onRoomCreated={handleRoomCreated}
+      />
+      <ProfileDrawer
+        isOpen={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        user={user}
+      />
     </Box>
   );
 };
