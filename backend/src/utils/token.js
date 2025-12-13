@@ -8,14 +8,14 @@ function assertSecret(secret, name) {
 
 export const generateAccessToken = (payload) => {
   const secret = process.env.JWT_ACCESS_SECRET;
-  const expiresIn = process.env.ACCESS_TOKEN_EXPIRY || "15m";
+  const expiresIn = process.env.ACCESS_TOKEN_EXPIRY;
   assertSecret(secret, "JWT_ACCESS_SECRET");
   return jwt.sign(payload, secret, { expiresIn });
 };
 
 export const generateRefreshToken = (payload) => {
   const secret = process.env.JWT_REFRESH_SECRET;
-  const expiresIn = process.env.REFRESH_TOKEN_EXPIRY || "7d";
+  const expiresIn = process.env.REFRESH_TOKEN_EXPIRY;
   assertSecret(secret, "JWT_REFRESH_SECRET");
   return jwt.sign(payload, secret, { expiresIn });
 };
