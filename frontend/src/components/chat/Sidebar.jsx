@@ -14,6 +14,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { LuLogOut, LuMessageSquarePlus, LuSettings } from "react-icons/lu";
 import dayjs from "../../lib/dayjs";
 import { useMemo, useState } from "react";
+import { InvitationButton } from "./InvitationModal";
 
 export const Sidebar = ({
   user,
@@ -24,6 +25,8 @@ export const Sidebar = ({
   onLogout,
   onOpenProfile,
   onNewChat,
+  invitationCount = 0,
+  onShowInvitations,
 }) => {
   const [query, setQuery] = useState("");
 
@@ -51,6 +54,7 @@ export const Sidebar = ({
             </Box>
           </Stack>
           <Stack direction="row" spacing={0.5}>
+            <InvitationButton count={invitationCount} onClick={onShowInvitations} />
             <IconButton onClick={onNewChat} size="small">
               <LuMessageSquarePlus />
             </IconButton>

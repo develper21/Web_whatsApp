@@ -19,10 +19,11 @@ import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
 import Stack from "@mui/material/Stack";
-import { LuUserPlus } from "react-icons/lu";
+import { LuUserPlus, LuMail } from "react-icons/lu";
 import { useChatStore } from "../../state/chatStore";
 import { useAuthStore } from "../../state/authStore";
 import { useDebounce } from "../../hooks/useDebounce";
+import { InvitationModal } from "./InvitationModal";
 
 export const NewChatModal = ({ isOpen, onClose, onRoomCreated }) => {
   const { user } = useAuthStore();
@@ -40,6 +41,7 @@ export const NewChatModal = ({ isOpen, onClose, onRoomCreated }) => {
   const [isGroup, setIsGroup] = useState(false);
   const [selected, setSelected] = useState([]);
   const [groupName, setGroupName] = useState("");
+  const [invitationOpen, setInvitationOpen] = useState(false);
   const debounced = useDebounce(query, 400);
 
   useEffect(() => {
@@ -96,6 +98,14 @@ export const NewChatModal = ({ isOpen, onClose, onRoomCreated }) => {
     }
   };
 
+  const handleInviteUser = () => {
+    setInvitationOpen(true);
+  };
+
+  const handleInvitationSent = () => {
+    onRoomCreated?.();
+  };
+
   return (
     <Dialog open={isOpen} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
@@ -106,6 +116,15 @@ export const NewChatModal = ({ isOpen, onClose, onRoomCreated }) => {
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<LuMail />}
+            onClick={handleInviteUser}
+            fullWidth
+          >
+            Invite User by Email
+          </Button>
+          <Divider />
           <FormControlLabel
             control={
               <Checkbox
@@ -187,6 +206,11 @@ export const NewChatModal = ({ isOpen, onClose, onRoomCreated }) => {
           </Button>
         )}
       </DialogActions>
+      <InvitationModal
+        isOpen={invitationOpen}
+        onClose={() => setInvitationOpen(false)}
+        onInvitationSent={handleInvitationSent}
+      />
     </Dialog>
   );
 };
