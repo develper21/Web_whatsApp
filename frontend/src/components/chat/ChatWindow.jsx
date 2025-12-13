@@ -3,7 +3,6 @@ import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
-import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Avatar from "@mui/material/Avatar";
 import Chip from "@mui/material/Chip";
@@ -145,9 +144,9 @@ const MessageComposer = ({ onSend, onTyping, disabled }) => {
           size="small"
         />
       )}
-      <Button type="submit" variant="contained" disabled={disabled} sx={{ borderRadius: 8 }}>
-        Send
-      </Button>
+      <IconButton type="submit" disabled={disabled} sx={{ borderRadius: 8 }}>
+        <IoSend />
+      </IconButton>
     </Stack>
   );
 };
