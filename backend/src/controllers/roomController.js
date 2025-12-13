@@ -46,6 +46,34 @@ export const createRoom = async (req, res) => {
   }
 };
 
+export const createRoomForInvitation = async (memberIds, isGroup = false) => {
+  try {
+    const uniqueMemberIds = Array.from(new Set(memberIds));
+
+    let room = await ChatRoom.findOne({
+      isGroup: false,
+      members: { $all: uniqueMemberIds, $size: 2 },
+    });
+
+    if (!room) {
+      room = await ChatRoom.create({
+        name: "",
+        isGroup: false,
+        members: uniqueMemberIds,
+      });
+    }
+
+    await room.populate([
+      { path: "members", select: "name email avatar onlineStatus lastSeen" },
+    ]);
+
+    return room;
+  } catch (error) {
+    console.error("createRoomForInvitation error:", error);
+    throw error;
+  }
+};
+
 export const listRooms = async (req, res) => {
   try {
     const rooms = await ChatRoom.find({
