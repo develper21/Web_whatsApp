@@ -3,8 +3,10 @@ import { verifyAccessToken } from "../utils/token.js";
 import { Message } from "../models/Message.js";
 import { ChatRoom } from "../models/ChatRoom.js";
 
+let ioInstance = null;
+
 export const initSocket = (httpServer, clientOrigin = "http://localhost:5173") => {
-  const io = new Server(httpServer, {
+  ioInstance = new Server(httpServer, {
     cors: {
       origin: clientOrigin.split(",").map((origin) => origin.trim()),
       methods: ["GET", "POST"],
@@ -12,7 +14,7 @@ export const initSocket = (httpServer, clientOrigin = "http://localhost:5173") =
     },
   });
 
-  io.use((socket, next) => {
+  ioInstance.use((socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
       if (!token) {
@@ -27,10 +29,10 @@ export const initSocket = (httpServer, clientOrigin = "http://localhost:5173") =
     }
   });
 
-  io.on("connection", (socket) => {
+  ioInstance.on("connection", (socket) => {
     const userId = socket.user.id;
     socket.join(`user:${userId}`);
-    io.emit("user-online", { userId, status: "online" });
+    ioInstance.emit("user-online", { userId, status: "online" });
 
     socket.on("join-room", (roomId) => {
       socket.join(roomId);
@@ -64,16 +66,23 @@ export const initSocket = (httpServer, clientOrigin = "http://localhost:5173") =
         });
 
         const populated = await message.populate("sender", "name email avatar");
-        io.to(roomId).emit("receive-message", populated);
+        ioInstance.to(roomId).emit("receive-message", populated);
       } catch (error) {
         console.error("send-message error:", error);
       }
     });
 
     socket.on("disconnect", () => {
-      io.emit("user-online", { userId, status: "offline" });
+      ioInstance.emit("user-online", { userId, status: "offline" });
     });
   });
 
-  return io;
+  return ioInstance;
+};
+
+export const getIO = () => ioInstance;
+
+export const emitToUser = (userId, event, payload) => {
+  if (!ioInstance || !userId) return;
+  ioInstance.to(`user:${userId}`).emit(event, payload);
 };
