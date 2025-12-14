@@ -1,9 +1,17 @@
 import { Invitation } from "../models/Invitation.js";
 import { User } from "../models/User.js";
+import { emitToUser } from "../socket/index.js";
+import { createRoomForInvitation } from "./roomController.js";
 
 export const sendInvitation = async (req, res) => {
   try {
-    const { recipientEmail, message } = req.body;
+    const {
+      recipientEmail,
+      message,
+      type = "direct",
+      roomId,
+      roomName,
+    } = req.body;
     const senderId = req.user.id;
 
     if (!recipientEmail) {
@@ -39,19 +47,34 @@ export const sendInvitation = async (req, res) => {
       }
     }
 
-    // Create new invitation
-    const invitation = await Invitation.create({
+    const invitationPayload = {
       sender: senderId,
       recipient: recipient._id,
       message: message || "Let's connect on AlgoChat!",
-    });
+      type,
+    };
+
+    if (type === "group" && roomId) {
+      invitationPayload.room = roomId;
+    }
+
+    if (type === "group" && roomName) {
+      invitationPayload.roomName = roomName;
+    }
+
+    // Create new invitation
+    const invitation = await Invitation.create(invitationPayload);
 
     // Populate sender details for response
-    await invitation.populate('sender', 'name email avatar');
-    
+    await invitation.populate("sender", "name email avatar");
+    const invitationData = invitation.toObject({ virtuals: true });
+
+    emitToUser(recipient._id.toString(), "invitation:new", invitationData);
+    emitToUser(senderId, "invitation:sent", invitationData);
+
     return res.status(201).json({
       message: "Invitation sent successfully",
-      invitation,
+      invitation: invitationData,
     });
   } catch (error) {
     console.error("sendInvitation error:", error);
@@ -106,18 +129,29 @@ export const respondToInvitation = async (req, res) => {
     invitation.respondedAt = new Date();
     await invitation.save();
 
+    let room = null;
     // If accepted, create a chat room
     if (status === "accepted") {
-      const { createRoomForInvitation } = require("./roomController");
-      await createRoomForInvitation([
-        invitation.sender.toString(), 
-        invitation.recipient.toString()
-      ]);
+      room = await createRoomForInvitation(
+        [invitation.sender.toString(), invitation.recipient.toString()],
+        invitation.type === "group"
+      );
     }
 
     await invitation.populate("sender", "name email avatar");
+    const invitationData = invitation.toObject({ virtuals: true });
 
-    return res.json(invitation);
+    emitToUser(invitation.sender.toString(), "invitation:updated", invitationData);
+    emitToUser(invitation.recipient.toString(), "invitation:updated", invitationData);
+
+    if (room) {
+      const roomData = room.toObject({ virtuals: true });
+      room.members.forEach((member) => {
+        emitToUser(member._id.toString(), "room:created", roomData);
+      });
+    }
+
+    return res.json(invitationData);
   } catch (error) {
     console.error("respondToInvitation error:", error);
     return res.status(500).json({ message: "Internal server error" });
