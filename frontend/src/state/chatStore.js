@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import api from "../lib/apiClient";
+import { useNotificationStore } from "./notificationStore";
 
 const upsertRooms = (rooms, newRoom) => {
   const exists = rooms.find((room) => room._id === newRoom._id);
@@ -164,9 +165,24 @@ export const useChatStore = create((set, get) => ({
         rooms: upsertRooms(state.rooms, data),
         roomActionLoading: false,
       }));
+      
+      useNotificationStore.getState().showSuccess(
+        `Group "${data.name}" created successfully!`,
+        { description: payload.isDirect 
+          ? "You can now start chatting with this user." 
+          : "You can now invite members to join the group."
+        }
+      );
+      
       return data;
     } catch (error) {
       set({ roomActionLoading: false });
+      
+      useNotificationStore.getState().showError(
+        "Failed to create group",
+        { description: error.response?.data?.message || "Please try again later." }
+      );
+      
       throw error;
     }
   },
@@ -184,6 +200,23 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  addInvitation: (invitation) =>
+    set((state) => ({
+      invitations: [invitation, ...state.invitations],
+    })),
+
+  updateInvitation: (invitation) =>
+    set((state) => ({
+      invitations: state.invitations.map((inv) =>
+        inv._id === invitation._id ? invitation : inv
+      ),
+    })),
+
+  upsertRooms: (newRoom) =>
+    set((state) => ({
+      rooms: upsertRooms(state.rooms, newRoom),
+    })),
+
   respondToInvitation: async (invitationId, status) => {
     try {
       const { data } = await api.patch(`/invitations/${invitationId}/respond`, { status });
@@ -193,10 +226,23 @@ export const useChatStore = create((set, get) => ({
       
       if (status === "accepted") {
         await get().fetchRooms();
+        useNotificationStore.getState().showSuccess(
+          "Invitation accepted!",
+          { description: "You have joined the group successfully." }
+        );
+      } else {
+        useNotificationStore.getState().showInfo(
+          "Invitation declined",
+          { description: "You have declined the group invitation." }
+        );
       }
       
       return data;
     } catch (error) {
+      useNotificationStore.getState().showError(
+        "Failed to respond to invitation",
+        { description: error.response?.data?.message || "Please try again." }
+      );
       throw error;
     }
   },
