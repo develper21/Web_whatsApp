@@ -1,7 +1,6 @@
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import TextField from "@mui/material/TextField";
 import IconButton from "@mui/material/IconButton";
 import Avatar from "@mui/material/Avatar";
 import Chip from "@mui/material/Chip";
@@ -11,10 +10,13 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemAvatar from "@mui/material/ListItemAvatar";
 import ListItemText from "@mui/material/ListItemText";
 import CircularProgress from "@mui/material/CircularProgress";
-import { LuLogOut, LuMessageSquarePlus, LuSettings } from "react-icons/lu";
+import Badge from "@mui/material/Badge";
+import Button from "@mui/material/Button";
+import { LuLogOut, LuSettings, LuMail, LuUserPlus } from "react-icons/lu";
 import dayjs from "../../lib/dayjs";
-import { useMemo, useState } from "react";
-import { InvitationButton } from "./InvitationModal";
+import { useMemo, useState, useEffect } from "react";
+import { useChatStore } from "../../state/chatStore";
+import { notificationService } from "../../lib/notificationService";
 
 export const Sidebar = ({
   user,
@@ -28,17 +30,33 @@ export const Sidebar = ({
   invitationCount = 0,
   onShowInvitations,
 }) => {
-  const [query, setQuery] = useState("");
+  const [hoveredUserId, setHoveredUserId] = useState(null);
+  const { searchUsers, userSearchResults, searchingUsers, createRoom } = useChatStore();
 
-  const filtered = useMemo(() => {
-    if (!query) return rooms;
-    return rooms.filter((room) => {
-      const name = room.isGroup
-        ? room.name
-        : room.members?.find((member) => member._id !== user?._id)?.name || "Chat";
-      return name.toLowerCase().includes(query.toLowerCase());
-    });
-  }, [query, rooms, user?._id]);
+  // Fetch all users on component mount
+  useEffect(() => {
+    searchUsers("");
+  }, []);
+
+  const handleInviteUser = async (targetUser) => {
+    try {
+      await createRoom({
+        name: `${user.name} & ${targetUser.name}`,
+        isDirect: true,
+        members: [targetUser._id]
+      });
+      
+      notificationService.success(
+        "Chat invitation sent!",
+        { description: `You've invited ${targetUser.name} to chat.` }
+      );
+    } catch (error) {
+      notificationService.error(
+        "Failed to send invitation",
+        { description: error.response?.data?.message || "Please try again." }
+      );
+    }
+  };
 
   return (
     <Stack sx={{ height: '100%', bgcolor: 'background.paper' }}>
@@ -54,9 +72,13 @@ export const Sidebar = ({
             </Box>
           </Stack>
           <Stack direction="row" spacing={0.5}>
-            <InvitationButton count={invitationCount} onClick={onShowInvitations} />
+            <Badge badgeContent={invitationCount} color="error">
+              <IconButton onClick={onShowInvitations} size="small">
+                <LuMail />
+              </IconButton>
+            </Badge>
             <IconButton onClick={onNewChat} size="small">
-              <LuMessageSquarePlus />
+              <LuUserPlus />
             </IconButton>
             <IconButton onClick={onOpenProfile} size="small">
               <LuSettings />
@@ -68,70 +90,120 @@ export const Sidebar = ({
         </Stack>
       </Box>
 
-      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-        <TextField
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search chats..."
-          size="small"
-          fullWidth
-        />
-      </Box>
+      <Box sx={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'row' }}>
+        {/* Chat Rooms List - Left Side */}
+        <Box sx={{ flex: 1, borderRight: 1, borderColor: 'divider' }}>
+          {loading ? (
+            <Box sx={{ p: 2, textAlign: 'center' }}>
+              <CircularProgress size={24} />
+            </Box>
+          ) : rooms.length === 0 ? (
+            <Box sx={{ p: 2, textAlign: 'center' }}>
+              <Typography color="text.secondary">
+                No chats yet
+              </Typography>
+            </Box>
+          ) : (
+            <List>
+              {rooms.map((room) => (
+                <ListItem key={room._id} disablePadding>
+                  <ListItemButton
+                    onClick={() => onSelectRoom(room._id)}
+                    selected={selectedRoomId === room._id}
+                  >
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: 'grey.300' }}>
+                        {room.name?.[0]}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Typography variant="subtitle2" fontWeight="medium">
+                            {room.name}
+                          </Typography>
+                          {room.isGroup && (
+                            <Chip label="Group" color="primary" size="small" />
+                          )}
+                        </Stack>
+                      }
+                      secondary={
+                        <>
+                          <Typography variant="caption" color="text.secondary">
+                            {room.isGroup ? `${room.members?.length || 0} members` : "Direct message"}
+                          </Typography>
+                          {room.latestMessage && (
+                            <Typography variant="body2" color="text.secondary" noWrap>
+                              {room.latestMessage.content}
+                            </Typography>
+                          )}
+                        </>
+                      }
+                    />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </Box>
 
-      <Box sx={{ flex: 1, overflowY: 'auto' }}>
-        {loading ? (
-          <Box sx={{ p: 2, textAlign: 'center' }}>
-            <CircularProgress size={24} />
-          </Box>
-        ) : filtered.length === 0 ? (
-          <Box sx={{ p: 2, textAlign: 'center' }}>
-            <Typography color="text.secondary">
-              {query ? "No rooms found" : "No rooms yet"}
+        {/* Users List - Right Side */}
+        <Box sx={{ width: 250, bgcolor: 'background.default' }}>
+          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+            <Typography variant="subtitle2" fontWeight="medium">
+              All Users
             </Typography>
           </Box>
-        ) : (
-          <List>
-            {filtered.map((room) => (
-              <ListItem key={room._id} disablePadding>
-                <ListItemButton
-                  onClick={() => onSelectRoom(room._id)}
-                  selected={selectedRoomId === room._id}
-                >
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: 'grey.300' }}>
-                      {room.name?.[0]}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography variant="subtitle2" fontWeight="medium">
-                          {room.name}
-                        </Typography>
-                        {room.isGroup && (
-                          <Chip label="Group" color="primary" size="small" />
-                        )}
-                      </Stack>
-                    }
-                    secondary={
-                      <>
-                        <Typography variant="caption" color="text.secondary">
-                          {room.isGroup ? `${room.members?.length || 0} members` : "Direct message"}
-                        </Typography>
-                        {room.latestMessage && (
-                          <Typography variant="body2" color="text.secondary" noWrap>
-                            {room.latestMessage.content}
+          {searchingUsers ? (
+            <Box sx={{ p: 2, textAlign: 'center' }}>
+              <CircularProgress size={20} />
+            </Box>
+          ) : (
+            <List dense>
+              {userSearchResults
+                .filter(searchUser => searchUser._id !== user?._id)
+                .map((searchUser) => (
+                  <ListItem 
+                    key={searchUser._id} 
+                    disablePadding
+                    onMouseEnter={() => setHoveredUserId(searchUser._id)}
+                    onMouseLeave={() => setHoveredUserId(null)}
+                  >
+                    <ListItemButton>
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: 'grey.300', width: 32, height: 32 }}>
+                          {searchUser.name?.[0]}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={
+                          <Typography variant="body2" fontWeight="medium">
+                            {searchUser.name}
                           </Typography>
-                        )}
-                      </>
-                    }
-                  />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
-        )}
+                        }
+                        secondary={
+                          <Typography variant="caption" color="text.secondary">
+                            Online
+                          </Typography>
+                        }
+                      />
+                      {hoveredUserId === searchUser._id && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<LuUserPlus size={14} />}
+                          onClick={() => handleInviteUser(searchUser)}
+                          sx={{ ml: 1, minWidth: 'auto' }}
+                        >
+                          Invite
+                        </Button>
+                      )}
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+            </List>
+          )}
+        </Box>
       </Box>
     </Stack>
   );
