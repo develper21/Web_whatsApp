@@ -18,6 +18,7 @@ import Badge from "@mui/material/Badge";
 import Chip from "@mui/material/Chip";
 import { LuMail, LuUserPlus, LuX } from "react-icons/lu";
 import api from "../../lib/apiClient";
+import { notificationService } from "../../lib/notificationService";
 
 export const InvitationModal = ({ isOpen, onClose, onInvitationSent }) => {
   const [email, setEmail] = useState("");
@@ -40,18 +41,32 @@ export const InvitationModal = ({ isOpen, onClose, onInvitationSent }) => {
       await api.post("/invitations", { recipientEmail: email.trim(), message });
       setEmail("");
       setMessage("Let's connect on AlgoChat!");
+      
+      notificationService.success(
+        "Invitation sent successfully!",
+        { description: `Invitation has been sent to ${email.trim()}.` }
+      );
+      
       onInvitationSent?.();
       onClose();
     } catch (error) {
       console.error("Failed to send invitation:", error);
       if (error.response?.status === 409) {
-        // Conflict - invitation already exists or chat already exists
         const message = error.response?.data?.message || "Invitation already sent";
-        alert(message);
+        notificationService.warning(
+          "Invitation already sent",
+          { description: message }
+        );
       } else if (error.response?.status === 404) {
-        alert("User not found with this email address");
+        notificationService.error(
+          "User not found",
+          { description: "No user found with this email address." }
+        );
       } else {
-        alert("Failed to send invitation. Please try again.");
+        notificationService.error(
+          "Failed to send invitation",
+          { description: "Please try again later." }
+        );
       }
     } finally {
       setLoading(false);
