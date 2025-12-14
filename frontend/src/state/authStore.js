@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import api, { setAuthToken } from "../lib/apiClient";
 import { useChatStore } from "./chatStore";
+import { useNotificationStore } from "./notificationStore";
 
 const persistUser = (user, tokens) => {
   if (typeof window === "undefined") return;
@@ -64,12 +65,25 @@ export const useAuthStore = create((set, get) => ({
         refreshToken: data.refreshToken,
         loading: false,
       });
+      
+      useNotificationStore.getState().showSuccess(
+        `Welcome to AlgoChat, ${data.user.name}! Your account has been created successfully.`,
+        { description: "You can now start chatting with your friends." }
+      );
+      
       return data;
     } catch (error) {
+      const errorMessage = error.response?.data?.message || "Registration failed";
       set({
-        error: error.response?.data?.message || "Registration failed",
+        error: errorMessage,
         loading: false,
       });
+      
+      useNotificationStore.getState().showError(
+        "Registration Failed",
+        { description: errorMessage }
+      );
+      
       throw error;
     }
   },
@@ -86,23 +100,43 @@ export const useAuthStore = create((set, get) => ({
         refreshToken: data.refreshToken,
         loading: false,
       });
+      
+      useNotificationStore.getState().showSuccess(
+        `Welcome back, ${data.user.name}! You have logged in successfully.`,
+        { description: "Your chat sessions are now available." }
+      );
+      
       return data;
     } catch (error) {
+      const errorMessage = error.response?.data?.message || "Login failed";
       set({
-        error: error.response?.data?.message || "Login failed",
+        error: errorMessage,
         loading: false,
       });
+      
+      useNotificationStore.getState().showError(
+        "Login Failed",
+        { description: errorMessage }
+      );
+      
       throw error;
     }
   },
 
   logout: () => {
+    const userName = get().user?.name;
+    
     if (typeof window !== "undefined") {
       localStorage.removeItem("algonive-auth");
     }
     setAuthToken("");
     useChatStore.getState().reset();
     set({ user: null, accessToken: "", refreshToken: "" });
+    
+    useNotificationStore.getState().showInfo(
+      "Logged out successfully",
+      { description: `Goodbye${userName ? `, ${userName}` : ""}! You have been logged out.` }
+    );
   },
 
   refreshToken: async () => {
