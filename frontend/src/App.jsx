@@ -2,6 +2,7 @@ import Box from "@mui/material/Box";
 import { useMemo } from "react";
 import { AuthView } from "./components/auth/AuthView";
 import { ChatView } from "./components/chat/ChatView";
+import { NotificationContainer } from "./components/notifications/NotificationContainer";
 import { useAuthStore } from "./state/authStore";
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       {content}
+      <NotificationContainer />
     </Box>
   );
 }
