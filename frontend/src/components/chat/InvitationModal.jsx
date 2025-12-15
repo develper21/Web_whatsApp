@@ -16,7 +16,8 @@ import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
 import Badge from "@mui/material/Badge";
 import Chip from "@mui/material/Chip";
-import { LuMail, LuUserPlus, LuX } from "react-icons/lu";
+import Stack from "@mui/material/Stack";
+import { LuMail, LuUserPlus, LuX, LuUsers } from "react-icons/lu";
 import api from "../../lib/apiClient";
 import { notificationService } from "../../lib/notificationService";
 
@@ -114,6 +115,7 @@ export const InvitationModal = ({ isOpen, onClose, onInvitationSent }) => {
           onClick={handleSendInvitation}
           disabled={!email.trim() || loading}
           variant="contained"
+          startIcon={<LuMail />}
         >
           {loading ? "Sending..." : "Send Invitation"}
         </Button>
@@ -155,6 +157,9 @@ export const InvitationsList = ({ invitations, onAccept, onReject }) => {
                 <Typography variant="caption" color="text.secondary" noWrap>
                   {invitation.message}
                 </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {invitation.isGroup ? "Group invitation" : "Chat invitation"}
+                </Typography>
               </Box>
               <Stack direction="row" spacing={0.5}>
                 <Button
@@ -163,6 +168,7 @@ export const InvitationsList = ({ invitations, onAccept, onReject }) => {
                   color="success"
                   onClick={() => onAccept(invitation._id)}
                   sx={{ minWidth: 60, fontSize: '0.75rem', py: 0.5 }}
+                  startIcon={<LuUserPlus size={12} />}
                 >
                   Accept
                 </Button>
@@ -172,6 +178,7 @@ export const InvitationsList = ({ invitations, onAccept, onReject }) => {
                   color="error"
                   onClick={() => onReject(invitation._id)}
                   sx={{ minWidth: 60, fontSize: '0.75rem', py: 0.5 }}
+                  startIcon={<LuX size={12} />}
                 >
                   Reject
                 </Button>
