@@ -167,10 +167,10 @@ export const useChatStore = create((set, get) => ({
       }));
       
       useNotificationStore.getState().showSuccess(
-        `Group "${data.name}" created successfully!`,
-        { description: payload.isDirect 
-          ? "You can now start chatting with this user." 
-          : "You can now invite members to join the group."
+        payload.isGroup ? `Group "${data.name}" created successfully!` : "Chat started successfully!",
+        { description: payload.isGroup 
+          ? "You can now invite members to join the group." 
+          : "You can now start chatting with this user."
         }
       );
       
@@ -179,7 +179,7 @@ export const useChatStore = create((set, get) => ({
       set({ roomActionLoading: false });
       
       useNotificationStore.getState().showError(
-        "Failed to create group",
+        payload.isGroup ? "Failed to create group" : "Failed to start chat",
         { description: error.response?.data?.message || "Please try again later." }
       );
       
@@ -228,12 +228,12 @@ export const useChatStore = create((set, get) => ({
         await get().fetchRooms();
         useNotificationStore.getState().showSuccess(
           "Invitation accepted!",
-          { description: "You have joined the group successfully." }
+          { description: "You have joined the chat successfully." }
         );
       } else {
         useNotificationStore.getState().showInfo(
           "Invitation declined",
-          { description: "You have declined the group invitation." }
+          { description: "You have declined the chat invitation." }
         );
       }
       
@@ -241,6 +241,31 @@ export const useChatStore = create((set, get) => ({
     } catch (error) {
       useNotificationStore.getState().showError(
         "Failed to respond to invitation",
+        { description: error.response?.data?.message || "Please try again." }
+      );
+      throw error;
+    }
+  },
+
+  // New function to invite members to a group
+  inviteMembers: async (roomId, memberIds) => {
+    try {
+      const { data } = await api.post(`/rooms/${roomId}/invite`, { memberIds });
+      set((state) => ({
+        rooms: state.rooms.map(room => 
+          room._id === roomId ? data : room
+        ),
+      }));
+      
+      useNotificationStore.getState().showSuccess(
+        "Members invited successfully!",
+        { description: "The selected members have been invited to join the group." }
+      );
+      
+      return data;
+    } catch (error) {
+      useNotificationStore.getState().showError(
+        "Failed to invite members",
         { description: error.response?.data?.message || "Please try again." }
       );
       throw error;
@@ -264,4 +289,3 @@ export const useChatStore = create((set, get) => ({
       loadingInvitations: false,
     }),
 }));
-
