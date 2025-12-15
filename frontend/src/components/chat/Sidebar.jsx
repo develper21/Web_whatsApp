@@ -40,22 +40,47 @@ export const Sidebar = ({
 
   const handleInviteUser = async (targetUser) => {
     try {
-      await createRoom({
-        name: `${user.name} & ${targetUser.name}`,
-        isDirect: true,
-        members: [targetUser._id]
+      // Check if a direct chat already exists with this user
+      const existingRoom = rooms.find(room => 
+        !room.isGroup && 
+        room.members.some(member => member._id === targetUser._id)
+      );
+
+      if (existingRoom) {
+        // If chat already exists, just select it
+        onSelectRoom(existingRoom._id);
+        notificationService.info(
+          "Chat already exists",
+          { description: `Opening existing chat with ${targetUser.name}.` }
+        );
+        return;
+      }
+
+      // Create a new direct chat room
+      const room = await createRoom({
+        memberIds: [targetUser._id],
+        isGroup: false
       });
       
       notificationService.success(
-        "Chat invitation sent!",
-        { description: `You've invited ${targetUser.name} to chat.` }
+        "Chat started!",
+        { description: `You can now chat with ${targetUser.name}.` }
       );
+      
+      // Select the newly created room
+      onSelectRoom(room._id);
     } catch (error) {
       notificationService.error(
-        "Failed to send invitation",
+        "Failed to start chat",
         { description: error.response?.data?.message || "Please try again." }
       );
     }
+  };
+
+  // Function to get the other user in a direct chat
+  const getOtherUser = (room) => {
+    if (room.isGroup) return null;
+    return room.members?.find(member => member._id !== user?._id);
   };
 
   return (
@@ -102,47 +127,58 @@ export const Sidebar = ({
               <Typography color="text.secondary">
                 No chats yet
               </Typography>
+              <Button 
+                variant="contained" 
+                onClick={onNewChat} 
+                startIcon={<LuUserPlus />} 
+                sx={{ mt: 2 }}
+              >
+                Start New Chat
+              </Button>
             </Box>
           ) : (
             <List>
-              {rooms.map((room) => (
-                <ListItem key={room._id} disablePadding>
-                  <ListItemButton
-                    onClick={() => onSelectRoom(room._id)}
-                    selected={selectedRoomId === room._id}
-                  >
-                    <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: 'grey.300' }}>
-                        {room.name?.[0]}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Stack direction="row" justifyContent="space-between" alignItems="center">
-                          <Typography variant="subtitle2" fontWeight="medium">
-                            {room.name}
-                          </Typography>
-                          {room.isGroup && (
-                            <Chip label="Group" color="primary" size="small" />
-                          )}
-                        </Stack>
-                      }
-                      secondary={
-                        <>
-                          <Typography variant="caption" color="text.secondary">
-                            {room.isGroup ? `${room.members?.length || 0} members` : "Direct message"}
-                          </Typography>
-                          {room.latestMessage && (
-                            <Typography variant="body2" color="text.secondary" noWrap>
-                              {room.latestMessage.content}
+              {rooms.map((room) => {
+                const otherUser = getOtherUser(room);
+                return (
+                  <ListItem key={room._id} disablePadding>
+                    <ListItemButton
+                      onClick={() => onSelectRoom(room._id)}
+                      selected={selectedRoomId === room._id}
+                    >
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: 'grey.300' }}>
+                          {room.isGroup ? (room.name?.[0] || 'G') : (otherUser?.name?.[0] || 'U')}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography variant="subtitle2" fontWeight="medium">
+                              {room.isGroup ? room.name : (otherUser?.name || "Unknown User")}
                             </Typography>
-                          )}
-                        </>
-                      }
-                    />
-                  </ListItemButton>
-                </ListItem>
-              ))}
+                            {room.isGroup && (
+                              <Chip label="Group" color="primary" size="small" />
+                            )}
+                          </Stack>
+                        }
+                        secondary={
+                          <>
+                            <Typography variant="caption" color="text.secondary">
+                              {room.isGroup ? `${room.members?.length || 0} members` : "Direct message"}
+                            </Typography>
+                            {room.latestMessage && (
+                              <Typography variant="body2" color="text.secondary" noWrap>
+                                {room.latestMessage.content}
+                              </Typography>
+                            )}
+                          </>
+                        }
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                );
+              })}
             </List>
           )}
         </Box>
@@ -183,7 +219,7 @@ export const Sidebar = ({
                         }
                         secondary={
                           <Typography variant="caption" color="text.secondary">
-                            Online
+                            {searchUser.onlineStatus ? "Online" : "Offline"}
                           </Typography>
                         }
                       />
@@ -195,7 +231,7 @@ export const Sidebar = ({
                           onClick={() => handleInviteUser(searchUser)}
                           sx={{ ml: 1, minWidth: 'auto' }}
                         >
-                          Invite
+                          Chat
                         </Button>
                       )}
                     </ListItemButton>
