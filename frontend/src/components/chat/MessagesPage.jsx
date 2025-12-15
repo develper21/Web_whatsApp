@@ -14,7 +14,7 @@ import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
-import { LuArrowLeft, LuUserPlus, LuCheck, LuX } from "react-icons/lu";
+import { LuArrowLeft, LuUserPlus, LuCheck, LuX, LuUsers } from "react-icons/lu";
 import { useChatStore } from "../../state/chatStore";
 import { useAuthStore } from "../../state/authStore";
 import { notificationService } from "../../lib/notificationService";
@@ -62,6 +62,12 @@ export const MessagesPage = ({ onBack, onSelectRoom }) => {
   const pendingInvitations = invitations.filter(inv => inv.status === "pending");
   const acceptedInvitations = invitations.filter(inv => inv.status === "accepted");
   const declinedInvitations = invitations.filter(inv => inv.status === "declined");
+
+  // Function to get room members excluding current user
+  const getOtherMembers = (room) => {
+    if (!room.members) return [];
+    return room.members.filter(member => member._id !== user?._id);
+  };
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>
@@ -142,43 +148,63 @@ export const MessagesPage = ({ onBack, onSelectRoom }) => {
             </Box>
           ) : (
             <List>
-              {rooms.map((room) => (
-                <ListItem key={room._id} disablePadding>
-                  <ListItemButton onClick={() => onSelectRoom(room._id)}>
-                    <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: 'grey.300' }}>
-                        {room.isGroup ? room.name?.[0] : 
-                          room.members?.find(m => m._id !== user?._id)?.name?.[0]}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Stack direction="row" justifyContent="space-between" alignItems="center">
-                          <Typography variant="subtitle2" fontWeight="medium">
-                            {room.isGroup ? room.name : 
-                              room.members?.find(m => m._id !== user?._id)?.name}
-                          </Typography>
-                          {room.isGroup && (
-                            <Chip label="Group" color="primary" size="small" />
-                          )}
-                        </Stack>
-                      }
-                      secondary={
-                        <>
-                          <Typography variant="caption" color="text.secondary">
-                            {room.isGroup ? `${room.members?.length || 0} members` : "Direct message"}
-                          </Typography>
-                          {room.latestMessage && (
-                            <Typography variant="body2" color="text.secondary" noWrap>
-                              {room.latestMessage.content}
+              {rooms.map((room) => {
+                const otherMembers = getOtherMembers(room);
+                return (
+                  <ListItem key={room._id} disablePadding>
+                    <ListItemButton onClick={() => onSelectRoom(room._id)}>
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: 'grey.300' }}>
+                          {room.isGroup ? (room.name?.[0] || 'G') : 
+                            (otherMembers[0]?.name?.[0] || 'U')}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography variant="subtitle2" fontWeight="medium">
+                              {room.isGroup ? room.name : 
+                                (otherMembers[0]?.name || "Unknown User")}
                             </Typography>
-                          )}
-                        </>
-                      }
-                    />
-                  </ListItemButton>
-                </ListItem>
-              ))}
+                            {room.isGroup && (
+                              <Chip label="Group" color="primary" size="small" />
+                            )}
+                          </Stack>
+                        }
+                        secondary={
+                          <>
+                            <Typography variant="caption" color="text.secondary">
+                              {room.isGroup ? 
+                                `${room.members?.length || 0} members` : 
+                                "Direct message"}
+                            </Typography>
+                            {room.latestMessage && (
+                              <Typography variant="body2" color="text.secondary" noWrap>
+                                {room.latestMessage.content}
+                              </Typography>
+                            )}
+                          </>
+                        }
+                      />
+                      {room.isGroup && otherMembers.length > 0 && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
+                          <Avatar 
+                            sx={{ 
+                              width: 24, 
+                              height: 24, 
+                              fontSize: 12,
+                              bgcolor: 'primary.light',
+                              color: 'primary.contrastText'
+                            }}
+                          >
+                            +{otherMembers.length}
+                          </Avatar>
+                        </Box>
+                      )}
+                    </ListItemButton>
+                  </ListItem>
+                );
+              })}
             </List>
           )}
         </Box>
