@@ -19,7 +19,7 @@ import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
 import Stack from "@mui/material/Stack";
-import { LuUserPlus, LuMail } from "react-icons/lu";
+import { LuUserPlus, LuUsers } from "react-icons/lu";
 import { useChatStore } from "../../state/chatStore";
 import { useAuthStore } from "../../state/authStore";
 import { useDebounce } from "../../hooks/useDebounce";
@@ -110,15 +110,17 @@ export const NewChatModal = ({ isOpen, onClose, onRoomCreated }) => {
     <Dialog open={isOpen} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         <Stack direction="row" spacing={1} alignItems="center">
-          <LuUserPlus />
-          <Typography variant="h6">Start a conversation</Typography>
+          {isGroup ? <LuUsers /> : <LuUserPlus />}
+          <Typography variant="h6">
+            {isGroup ? "Create Group Chat" : "Start a Conversation"}
+          </Typography>
         </Stack>
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Button
             variant="outlined"
-            startIcon={<LuMail />}
+            startIcon={<LuUserPlus />}
             onClick={handleInviteUser}
             fullWidth
           >
@@ -140,6 +142,7 @@ export const NewChatModal = ({ isOpen, onClose, onRoomCreated }) => {
               value={groupName}
               onChange={(e) => setGroupName(e.target.value)}
               fullWidth
+              helperText="Enter a name for your group chat"
             />
           )}
           <Divider />
@@ -158,21 +161,39 @@ export const NewChatModal = ({ isOpen, onClose, onRoomCreated }) => {
             <List sx={{ maxHeight: 240, overflowY: 'auto' }}>
               {userSearchResults.map((u) => (
                 <ListItem key={u._id} disablePadding>
-                  <ListItemButton onClick={() => toggleSelect(u._id)}>
-                    <Checkbox
-                      checked={selected.includes(u._id)}
-                      onChange={() => toggleSelect(u._id)}
-                      sx={{ mr: 1 }}
-                    />
+                  <ListItemButton 
+                    onClick={() => {
+                      if (isGroup) {
+                        toggleSelect(u._id);
+                      } else {
+                        handleDirectStart(u._id);
+                      }
+                    }}
+                  >
+                    {isGroup && (
+                      <Checkbox
+                        checked={selected.includes(u._id)}
+                        onChange={() => toggleSelect(u._id)}
+                        sx={{ mr: 1 }}
+                      />
+                    )}
                     <ListItemAvatar>
                       <Avatar sx={{ bgcolor: 'grey.300' }}>
                         {u.name?.[0]}
                       </Avatar>
                     </ListItemAvatar>
-                    <ListItemText primary={u.name} />
-                    {u.onlineStatus && (
-                      <Chip label="Online" color="success" size="small" />
-                    )}
+                    <ListItemText 
+                      primary={u.name} 
+                      secondary={
+                        u.onlineStatus ? (
+                          <Chip label="Online" color="success" size="small" variant="outlined" />
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">
+                            Offline
+                          </Typography>
+                        )
+                      }
+                    />
                   </ListItemButton>
                 </ListItem>
               ))}
@@ -193,6 +214,7 @@ export const NewChatModal = ({ isOpen, onClose, onRoomCreated }) => {
             onClick={handleCreateGroup}
             disabled={roomActionLoading || selected.length < 2 || !groupName.trim()}
             variant="contained"
+            startIcon={<LuUsers />}
           >
             Create Group
           </Button>
@@ -201,6 +223,7 @@ export const NewChatModal = ({ isOpen, onClose, onRoomCreated }) => {
             onClick={() => selected[0] && handleDirectStart(selected[0])}
             disabled={roomActionLoading || selected.length === 0}
             variant="contained"
+            startIcon={<LuUserPlus />}
           >
             Start Chat
           </Button>
