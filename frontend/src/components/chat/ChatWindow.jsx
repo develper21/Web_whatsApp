@@ -7,8 +7,9 @@ import IconButton from "@mui/material/IconButton";
 import Avatar from "@mui/material/Avatar";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
+import Tooltip from "@mui/material/Tooltip";
 import { IoSend } from "react-icons/io5";
-import { LuPaperclip, LuPhone, LuVideo, LuArrowLeft } from "react-icons/lu";
+import { LuPaperclip, LuPhone, LuVideo, LuArrowLeft, LuUsers } from "react-icons/lu";
 import dayjs from "../../lib/dayjs";
 
 const AttachmentList = ({ attachments = [], isOwn }) => {
@@ -173,6 +174,7 @@ export const ChatWindow = ({
       return {
         title: room.name,
         status: `${room.members?.length || 0} members`,
+        members: room.members,
       };
     }
     const counterpart = room.members?.find((member) => member._id !== currentUser?._id);
@@ -187,6 +189,12 @@ export const ChatWindow = ({
       online: counterpart?.onlineStatus,
     };
   }, [room, currentUser?._id]);
+
+  // Function to get other members in a group chat
+  const getOtherMembers = () => {
+    if (!room || !room.isGroup || !room.members) return [];
+    return room.members.filter(member => member._id !== currentUser?._id);
+  };
 
   if (!room) {
     return (
@@ -212,6 +220,27 @@ export const ChatWindow = ({
             <Typography color="text.secondary" variant="body2">
               {header.status}
             </Typography>
+            {room.isGroup && (
+              <Stack direction="row" spacing={0.5} mt={0.5}>
+                {getOtherMembers().slice(0, 3).map((member) => (
+                  <Tooltip key={member._id} title={member.name}>
+                    <Avatar 
+                      src={member.avatar} 
+                      sx={{ width: 24, height: 24, fontSize: 12 }}
+                    >
+                      {member.name?.[0]}
+                    </Avatar>
+                  </Tooltip>
+                ))}
+                {getOtherMembers().length > 3 && (
+                  <Chip 
+                    label={`+${getOtherMembers().length - 3}`} 
+                    size="small" 
+                    variant="outlined" 
+                  />
+                )}
+              </Stack>
+            )}
           </Box>
         </Stack>
         <Stack direction="row" spacing={1}>
@@ -230,6 +259,11 @@ export const ChatWindow = ({
           <IconButton aria-label="Video Call">
             <LuVideo />
           </IconButton>
+          {room.isGroup && (
+            <IconButton aria-label="Group Info">
+              <LuUsers />
+            </IconButton>
+          )}
         </Stack>
       </Stack>
 
