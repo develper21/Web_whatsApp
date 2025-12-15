@@ -8,8 +8,9 @@ import { ProfileDrawer } from "./ProfileDrawer";
 import { MessagesPage } from "./MessagesPage";
 import { useAuthStore } from "../../state/authStore";
 import { useChatStore } from "../../state/chatStore";
-import { disconnectSocket, getSocket, initSocket } from "../../lib/socket";
+import { disconnectSocket, getSocket, initSocket, joinRoom, leaveRoom, sendMessage, emitTyping } from "../../lib/socket";
 import { uploadAttachments } from "../../lib/apiClient";
+import { notificationService } from "../../lib/notificationService";
 
 export const ChatView = () => {
   const [mobileView, setMobileView] = useState("sidebar");
@@ -35,6 +36,18 @@ export const ChatView = () => {
       fetchRooms();
       fetchInvitations();
       initSocket();
+      
+      // Setup socket listeners
+      const socket = getSocket();
+      if (socket) {
+        socket.on("connect", () => {
+          console.log("Connected to socket server");
+        });
+        
+        socket.on("disconnect", () => {
+          console.log("Disconnected from socket server");
+        });
+      }
     }
     
     return () => {
@@ -44,12 +57,42 @@ export const ChatView = () => {
     };
   }, [fetchRooms, fetchInvitations, user]);
 
+  // Join/leave room when selection changes
+  useEffect(() => {
+    if (selectedRoomId) {
+      joinRoom(selectedRoomId);
+    }
+    
+    return () => {
+      if (selectedRoomId) {
+        leaveRoom(selectedRoomId);
+      }
+    };
+  }, [selectedRoomId]);
+
   const selectedRoom = useMemo(
     () => rooms.find((room) => room._id === selectedRoomId),
     [rooms, selectedRoomId]
   );
 
   const selectedRoomMessages = messages[selectedRoomId] || [];
+
+  // Get typing users for the current room
+  const typingUsers = useMemo(() => {
+    const typingStatus = useChatStore.getState().typingStatus;
+    if (!selectedRoomId || !typingStatus[selectedRoomId]) return [];
+    
+    const currentUser = useAuthStore.getState().user;
+    const roomTyping = typingStatus[selectedRoomId];
+    
+    return Object.entries(roomTyping)
+      .filter(([userId, isTyping]) => isTyping && userId !== currentUser?._id)
+      .map(([userId]) => {
+        const room = rooms.find(r => r._id === selectedRoomId);
+        const user = room?.members?.find(m => m._id === userId);
+        return user?.name || "Someone";
+      });
+  }, [selectedRoomId, rooms]);
 
   const handleNewChat = () => {
     setNewChatOpen(true);
@@ -103,6 +146,52 @@ export const ChatView = () => {
     setShowMessages(false);
   };
 
+  const handleSendMessage = async ({ content, files }) => {
+    if (!selectedRoomId) return;
+    
+    const clientMessageId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Add pending message immediately for better UX
+    useChatStore.getState().addPendingMessage(selectedRoomId, {
+      _id: null,
+      content,
+      sender: user,
+      roomId: selectedRoomId,
+      clientMessageId,
+      createdAt: new Date().toISOString(),
+      attachments: files.map(file => ({
+        originalName: file.name,
+        type: file.type,
+        size: file.size,
+      })),
+    });
+
+    try {
+      let uploadedFiles = [];
+      if (files?.length) {
+        uploadedFiles = await uploadAttachments(files);
+      }
+
+      sendMessage({
+        roomId: selectedRoomId,
+        content,
+        attachments: uploadedFiles,
+        clientMessageId,
+      });
+    } catch (error) {
+      notificationService.error(
+        "Failed to send message",
+        { description: "Please try again." }
+      );
+      console.error("Failed to send message:", error);
+    }
+  };
+
+  const handleTyping = (isTyping) => {
+    if (!selectedRoomId) return;
+    emitTyping({ roomId: selectedRoomId, isTyping });
+  };
+
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       {showMessages ? (
@@ -145,9 +234,11 @@ export const ChatView = () => {
                 room={selectedRoom}
                 messages={selectedRoomMessages}
                 loading={loadingMessages}
+                typingUsers={typingUsers}
                 currentUser={user}
                 onBack={handleBackToSidebar}
-                uploadAttachments={uploadAttachments}
+                onSendMessage={handleSendMessage}
+                onTyping={handleTyping}
               />
             </Box>
           </Box>
