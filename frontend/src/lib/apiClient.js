@@ -58,3 +58,21 @@ export const uploadAttachments = async (files = []) => {
   });
   return data.files || [];
 };
+
+export const uploadEncryptedAttachments = async ({ files, aesKey, iv }) => {
+  if (!files.length) return [];
+  const formData = new FormData();
+  files.forEach((file) => formData.append("files", file));
+  formData.append("encryptionAlgorithm", "AES-GCM");
+  formData.append("encryptionIv", iv);
+  const { data } = await api.post("/messages/upload", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return (data.files || []).map((file) => ({
+    ...file,
+    encryption: {
+      algorithm: "AES-GCM",
+      iv,
+    },
+  }));
+};
