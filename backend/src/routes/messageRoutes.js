@@ -16,6 +16,14 @@ router.post(
       originalName: file.originalname,
       size: file.size,
       type: file.mimetype,
+      originalType: file.mimetype,
+      originalSize: file.size,
+      encryption: (req.body.encryptionAlgorithm && req.body.encryptionIv)
+        ? {
+            algorithm: req.body.encryptionAlgorithm,
+            iv: req.body.encryptionIv,
+          }
+        : undefined,
     }));
     return res.status(201).json({ files });
   }
