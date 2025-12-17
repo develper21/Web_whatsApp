@@ -46,7 +46,7 @@ export const initSocket = (httpServer, clientOrigin = "http://localhost:5173") =
       socket.to(roomId).emit("user-typing", { roomId, userId, isTyping });
     });
 
-    socket.on("send-message", async ({ roomId, content, attachments = [], clientMessageId }) => {
+    socket.on("send-message", async ({ roomId, content, attachments = [], clientMessageId, encryption }) => {
       try {
         const hasContent = content && content.trim().length > 0;
         const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
@@ -59,6 +59,7 @@ export const initSocket = (httpServer, clientOrigin = "http://localhost:5173") =
           attachments,
           readBy: [userId],
           clientMessageId,
+          encryption,
         });
 
         await ChatRoom.findByIdAndUpdate(roomId, {
@@ -85,4 +86,13 @@ export const getIO = () => ioInstance;
 export const emitToUser = (userId, event, payload) => {
   if (!ioInstance || !userId) return;
   ioInstance.to(`user:${userId}`).emit(event, payload);
+};
+
+export const emitNotification = (userId, notification) => {
+  if (!ioInstance || !userId || !notification) return;
+  ioInstance.to(`user:${userId}`).emit("notification:push", {
+    type: notification.type || "info",
+    message: notification.message,
+    description: notification.description,
+  });
 };
