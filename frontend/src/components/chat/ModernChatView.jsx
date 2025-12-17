@@ -19,14 +19,18 @@ import { ContactList } from './ContactList';
 import { ModernChatWindow } from './ModernChatWindow';
 import { NewChatModal } from './NewChatModal';
 import { InvitationsView } from './InvitationsView';
+import { ContactsView } from './ContactsView';
 import { disconnectSocket, getSocket, initSocket, joinRoom, leaveRoom, sendMessage, emitTyping } from '../../lib/socket';
-import { uploadAttachments } from '../../lib/apiClient';
+import { uploadAttachments, uploadEncryptedAttachments } from '../../lib/apiClient';
+import { encryptMessageForRecipients, encryptFileBuffer, arrayBufferToBase64 } from '../../lib/cryptoUtils';
+import { useNotificationStore } from '../../state/notificationStore';
 
 export const ModernChatView = ({ onLogout }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [showInvitations, setShowInvitations] = useState(false);
-  const { user, logout } = useAuthStore();
+  const [activeSection, setActiveSection] = useState("chat");
+  const { user, logout, ensureEncryptionKeys } = useAuthStore();
   const {
     rooms,
     selectedRoomId,
@@ -69,6 +73,13 @@ export const ModernChatView = ({ onLogout }) => {
     setMobileOpen(!mobileOpen);
   };
 
+  const handleNavigate = (section) => {
+    setActiveSection(section);
+    if (section !== "contacts") {
+      setShowInvitations(false);
+    }
+  };
+
   const handleNewChat = () => {
     setNewChatOpen(true);
   };
@@ -79,6 +90,8 @@ export const ModernChatView = ({ onLogout }) => {
 
   const handleSelectRoom = (roomId) => {
     selectRoom(roomId);
+    setActiveSection("chat");
+    setMobileOpen(false);
   };
 
   const handleLogout = () => {
@@ -106,7 +119,8 @@ export const ModernChatView = ({ onLogout }) => {
     if (!selectedRoomId) return;
     
     const clientMessageId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+    const room = rooms.find((r) => r._id === selectedRoomId);
+
     // Add pending message immediately for better UX
     useChatStore.getState().addPendingMessage(selectedRoomId, {
       _id: null,
@@ -124,15 +138,87 @@ export const ModernChatView = ({ onLogout }) => {
 
     try {
       let uploadedFiles = [];
+      let encryptionPayload = null;
+      let messageAesKey = null;
+
+      if (room && content?.trim()) {
+        try {
+          await ensureEncryptionKeys();
+          const authState = useAuthStore.getState();
+          const normalizedMembers = room.members || [];
+
+          const recipients = normalizedMembers.map((member) => ({
+            userId: member._id,
+            publicKey: member.encryptionPublicKey,
+          }));
+
+          const missingKeys = recipients.filter((recipient) => !recipient.publicKey);
+
+          if (!authState.encryptionPublicKey || missingKeys.length) {
+            useNotificationStore.getState().showError("Encryption unavailable", {
+              description: "One or more participants are missing encryption keys. Message not sent.",
+            });
+            return;
+          }
+
+          encryptionPayload = await encryptMessageForRecipients({
+            plaintext: content,
+            recipients,
+          });
+
+          messageAesKey = encryptionPayload.aesKey;
+        } catch (encryptionError) {
+          console.error("Failed to encrypt direct message", encryptionError);
+          useNotificationStore.getState().showError("Encryption failed", {
+            description: "We couldn't secure this message. Please try again.",
+          });
+          return;
+        }
+      }
+
       if (files?.length) {
-        uploadedFiles = await uploadAttachments(files);
+        if (messageAesKey) {
+          const encryptedFiles = await Promise.all(
+            files.map(async (file) => {
+              const fileBuffer = await file.arrayBuffer();
+              const { encryptedBuffer, iv } = await encryptFileBuffer({
+                fileBuffer,
+                aesKey: messageAesKey,
+              });
+              const encryptedBlob = new Blob([encryptedBuffer], { type: file.type });
+              const encryptedFile = new File([encryptedBlob], file.name, { type: file.type });
+              return encryptedFile;
+            })
+          );
+
+          const attachmentIv = window.crypto.getRandomValues(new Uint8Array(12));
+          uploadedFiles = await uploadEncryptedAttachments({
+            files: encryptedFiles,
+            aesKey: messageAesKey,
+            iv: arrayBufferToBase64(attachmentIv.buffer),
+          });
+        } else {
+          uploadedFiles = await uploadAttachments(files);
+        }
+      }
+
+      let outgoingContent = content;
+      if (encryptionPayload) {
+        outgoingContent = encryptionPayload.ciphertext;
       }
 
       sendMessage({
         roomId: selectedRoomId,
-        content,
+        content: outgoingContent,
         attachments: uploadedFiles,
         clientMessageId,
+        encryption: encryptionPayload
+          ? {
+              algorithm: encryptionPayload.algorithm,
+              iv: encryptionPayload.iv,
+              recipients: encryptionPayload.recipients,
+            }
+          : undefined,
       });
     } catch (error) {
       console.error("Failed to send message:", error);
@@ -159,6 +245,66 @@ export const ModernChatView = ({ onLogout }) => {
     : [];
 
   const pendingInvitationsCount = invitations.filter(inv => inv.status === 'pending').length;
+  const contactListDisplay = activeSection === "contacts"
+    ? 'none'
+    : { xs: selectedRoomId ? 'none' : 'block', md: 'block' };
+
+  const renderMainContent = () => {
+    if (showInvitations) {
+      return <InvitationsView onBack={handleHideInvitations} />;
+    }
+
+    if (activeSection === "contacts") {
+      return (
+        <ContactsView
+          onStartChat={handleSelectRoom}
+          onShowInvitations={handleShowInvitations}
+        />
+      );
+    }
+
+    if (selectedRoom) {
+      return (
+        <ModernChatWindow
+          room={selectedRoom}
+          messages={selectedRoomMessages}
+          currentUser={user}
+          typingUsers={typingUsers}
+          onLeaveRoom={handleLeaveRoom}
+          onSendMessage={handleSendMessage}
+          onTyping={handleTyping}
+        />
+      );
+    }
+
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          p: 2,
+          textAlign: 'center'
+        }}
+      >
+        <Typography variant="h5" color="text.secondary" gutterBottom>
+          Welcome to AlgoChat
+        </Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+          Select a chat or start a new conversation
+        </Typography>
+        <Fab 
+          color="primary" 
+          onClick={handleNewChat}
+          sx={{ boxShadow: 3 }}
+        >
+          <AddIcon />
+        </Fab>
+      </Box>
+    );
+  };
 
   return (
     <Box sx={{ display: 'flex', height: '100vh' }}>
@@ -170,6 +316,9 @@ export const ModernChatView = ({ onLogout }) => {
         mobileOpen={mobileOpen} 
         handleDrawerToggle={handleDrawerToggle}
         onNewChat={handleNewChat}
+        onNavigate={handleNavigate}
+        activeSection={activeSection}
+        pendingInvitationCount={pendingInvitationsCount}
       />
       
       {/* Main Content */}
@@ -192,7 +341,7 @@ export const ModernChatView = ({ onLogout }) => {
               width: { xs: '100%', md: 320 },
               borderRight: 1,
               borderColor: 'divider',
-              display: { xs: selectedRoomId ? 'none' : 'block', md: 'block' }
+              display: contactListDisplay
             }}
           >
             <ContactList 
@@ -201,57 +350,21 @@ export const ModernChatView = ({ onLogout }) => {
               invitationCount={pendingInvitationsCount}
             />
           </Box>
-          
+
           {/* Main View */}
           <Box
             sx={{
               flexGrow: 1,
-              display: { xs: selectedRoomId ? 'block' : 'none', md: 'block' }
+              display: activeSection === "contacts"
+                ? 'block'
+                : { xs: selectedRoomId ? 'block' : 'none', md: 'block' }
             }}
           >
-            {showInvitations ? (
-              <InvitationsView onBack={handleHideInvitations} />
-            ) : selectedRoom ? (
-              <ModernChatWindow
-                room={selectedRoom}
-                messages={selectedRoomMessages}
-                currentUser={user}
-                typingUsers={typingUsers}
-                onLeaveRoom={handleLeaveRoom}
-                onSendMessage={handleSendMessage}
-                onTyping={handleTyping}
-              />
-            ) : (
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '100%',
-                  p: 2,
-                  textAlign: 'center'
-                }}
-              >
-                <Typography variant="h5" color="text.secondary" gutterBottom>
-                  Welcome to AlgoChat
-                </Typography>
-                <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                  Select a chat or start a new conversation
-                </Typography>
-                <Fab 
-                  color="primary" 
-                  onClick={handleNewChat}
-                  sx={{ boxShadow: 3 }}
-                >
-                  <AddIcon />
-                </Fab>
-              </Box>
-            )}
+            {renderMainContent()}
           </Box>
         </Box>
       </Box>
-      
+
       {/* New Chat Modal */}
       <NewChatModal
         isOpen={newChatOpen}
