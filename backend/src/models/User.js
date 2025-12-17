@@ -14,6 +14,7 @@ const userSchema = new mongoose.Schema(
     onlineStatus: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now },
     avatar: { type: String },
+    encryptionPublicKey: { type: String },
   },
   { timestamps: true }
 );
