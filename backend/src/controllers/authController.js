@@ -15,7 +15,7 @@ const sanitizeUser = (userDoc) => {
 
 export const register = async (req, res) => {
   try {
-    const { name, email, password, avatar } = req.body;
+    const { name, email, password, avatar, encryptionPublicKey } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ message: "Email and password are required" });
@@ -34,6 +34,7 @@ export const register = async (req, res) => {
       email,
       passwordHash,
       avatar,
+      encryptionPublicKey,
       onlineStatus: true,
       lastSeen: new Date(),
     });
