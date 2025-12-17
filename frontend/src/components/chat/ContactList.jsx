@@ -7,8 +7,7 @@ import {
   Avatar,
   Badge,
   Typography,
-  Divider,
-  Button
+  Divider
 } from '@mui/material';
 import { useChatStore } from '../../state/chatStore';
 
