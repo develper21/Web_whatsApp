@@ -9,8 +9,7 @@ import {
   Collapse,
   Badge,
   TextField,
-  InputAdornment,
-  IconButton
+  InputAdornment
 } from '@mui/material';
 import {
   Chat as ChatIcon,
@@ -23,16 +22,22 @@ import {
   Add as AddIcon
 } from '@mui/icons-material';
 
-export const Sidebar = ({ mobileOpen, handleDrawerToggle, onNewChat }) => {
-  const [openChats, setOpenChats] = useState(true);
-  const [openContacts, setOpenContacts] = useState(true);
-
-  const handleChatsClick = () => {
-    setOpenChats(!openChats);
-  };
+export const Sidebar = ({
+  mobileOpen,
+  handleDrawerToggle,
+  onNewChat,
+  onNavigate,
+  activeSection = "welcome",
+  pendingInvitationCount = 0,
+}) => {
+  const [contactsMenuOpen, setContactsMenuOpen] = useState(true);
 
   const handleContactsClick = () => {
-    setOpenContacts(!openContacts);
+    setContactsMenuOpen((prev) => !prev);
+  };
+
+  const handleSelect = (section) => {
+    onNavigate?.(section);
   };
 
   const drawer = (
@@ -55,7 +60,8 @@ export const Sidebar = ({ mobileOpen, handleDrawerToggle, onNewChat }) => {
       <List>
         <ListItem 
           component="button"
-          onClick={() => {}}
+          selected={activeSection === "chat"}
+          onClick={() => handleSelect("chat")}
           sx={{ 
             py: 1,
             width: '100%',
@@ -76,7 +82,7 @@ export const Sidebar = ({ mobileOpen, handleDrawerToggle, onNewChat }) => {
         
         <ListItem 
           component="button"
-          onClick={handleChatsClick}
+          onClick={handleContactsClick}
           sx={{ 
             py: 1,
             width: '100%',
@@ -90,19 +96,24 @@ export const Sidebar = ({ mobileOpen, handleDrawerToggle, onNewChat }) => {
           }}
         >
           <ListItemIcon>
-            <Badge badgeContent={4} color="primary">
+            <Badge 
+              badgeContent={pendingInvitationCount}
+              color="primary"
+              invisible={pendingInvitationCount === 0}
+            >
               <PeopleIcon />
             </Badge>
           </ListItemIcon>
           <ListItemText primary="Contacts" />
-          {openChats ? <ExpandLess /> : <ExpandMore />}
+          {contactsMenuOpen ? <ExpandLess /> : <ExpandMore />}
         </ListItem>
         
-        <Collapse in={openChats} timeout="auto" unmountOnExit>
+        <Collapse in={contactsMenuOpen} timeout="auto" unmountOnExit>
           <List component="div" disablePadding>
             <ListItem 
               component="button"
-              onClick={() => {}}
+              selected={activeSection === "contacts"}
+              onClick={() => handleSelect("contacts")}
               sx={{ 
                 pl: 4,
                 py: 1,
@@ -120,7 +131,8 @@ export const Sidebar = ({ mobileOpen, handleDrawerToggle, onNewChat }) => {
             </ListItem>
             <ListItem 
               component="button"
-              onClick={() => {}}
+              selected={activeSection === "groups"}
+              onClick={() => handleSelect("groups")}
               sx={{ 
                 pl: 4,
                 py: 1,
@@ -138,7 +150,8 @@ export const Sidebar = ({ mobileOpen, handleDrawerToggle, onNewChat }) => {
             </ListItem>
             <ListItem 
               component="button"
-              onClick={() => {}}
+              selected={activeSection === "favorites"}
+              onClick={() => handleSelect("favorites")}
               sx={{ 
                 pl: 4,
                 py: 1,
@@ -232,7 +245,7 @@ export const Sidebar = ({ mobileOpen, handleDrawerToggle, onNewChat }) => {
         open={mobileOpen}
         onClose={handleDrawerToggle}
         ModalProps={{
-          keepMounted: true, // Better open performance on mobile.
+          keepMounted: true,
         }}
         sx={{
           '& .MuiDrawer-paper': { 
