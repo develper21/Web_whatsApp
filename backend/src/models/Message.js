@@ -6,6 +6,12 @@ const attachmentSchema = new mongoose.Schema(
     type: { type: String },
     originalName: { type: String },
     size: { type: Number },
+    originalType: { type: String },
+    originalSize: { type: Number },
+    encryption: {
+      algorithm: { type: String },
+      iv: { type: String },
+    },
   },
   { _id: false }
 );
@@ -18,6 +24,16 @@ const messageSchema = new mongoose.Schema(
     attachments: [attachmentSchema],
     readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     clientMessageId: { type: String },
+    encryption: {
+      algorithm: { type: String },
+      iv: { type: String },
+      recipients: [
+        {
+          userId: { type: String },
+          encryptedKey: { type: String },
+        },
+      ],
+    },
   },
   { timestamps: true }
 );
