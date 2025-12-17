@@ -1,6 +1,6 @@
 import { Invitation } from "../models/Invitation.js";
 import { User } from "../models/User.js";
-import { emitToUser } from "../socket/index.js";
+import { emitNotification, emitToUser } from "../socket/index.js";
 import { createRoomForInvitation } from "./roomController.js";
 
 export const sendInvitation = async (req, res) => {
@@ -72,6 +72,24 @@ export const sendInvitation = async (req, res) => {
     emitToUser(recipient._id.toString(), "invitation:new", invitationData);
     emitToUser(senderId, "invitation:sent", invitationData);
 
+    const senderName = invitationData.sender?.name || "Someone";
+    const inviteContext =
+      type === "group" && (roomName || invitationData.roomName)
+        ? `the group "${roomName || invitationData.roomName}"`
+        : "a chat";
+
+    emitNotification(recipient._id.toString(), {
+      type: "info",
+      message: "New chat invitation",
+      description: `${senderName} invited you to join ${inviteContext}.`,
+    });
+
+    emitNotification(senderId, {
+      type: "success",
+      message: "Invitation sent",
+      description: `Waiting for ${recipient.name || "the recipient"} to respond.`,
+    });
+
     return res.status(201).json({
       message: "Invitation sent successfully",
       invitation: invitationData,
@@ -130,11 +148,18 @@ export const respondToInvitation = async (req, res) => {
     await invitation.save();
 
     let room = null;
-    // If accepted, create a chat room
+    const invitationRoomId = invitation.room
+      ? typeof invitation.room === "object"
+        ? invitation.room.toString()
+        : invitation.room
+      : null;
+
+    // If accepted, create or update a chat room
     if (status === "accepted") {
       room = await createRoomForInvitation(
         [invitation.sender.toString(), invitation.recipient.toString()],
-        invitation.type === "group"
+        invitation.type === "group",
+        invitationRoomId
       );
     }
 
@@ -148,6 +173,30 @@ export const respondToInvitation = async (req, res) => {
       const roomData = room.toObject({ virtuals: true });
       room.members.forEach((member) => {
         emitToUser(member._id.toString(), "room:created", roomData);
+      });
+
+      emitNotification(invitation.sender.toString(), {
+        type: "success",
+        message: invitation.type === "group" ? "Invitation accepted" : "Chat ready",
+        description:
+          invitation.type === "group"
+            ? `${invitation.recipient.name || "A member"} joined ${room.name || "your group"}.`
+            : `${invitation.recipient.name || "The recipient"} accepted your invitation.`,
+      });
+
+      emitNotification(invitation.recipient.toString(), {
+        type: "success",
+        message: "Invitation accepted",
+        description:
+          invitation.type === "group"
+            ? `You're now part of ${room.name || "the group"}.`
+            : `You can start chatting with ${invitation.sender.name || "the other user"}.`,
+      });
+    } else if (status === "rejected") {
+      emitNotification(invitation.sender.toString(), {
+        type: "warning",
+        message: "Invitation declined",
+        description: `${invitation.recipient.name || "The user"} declined your invitation.`,
       });
     }
 
