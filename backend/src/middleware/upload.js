@@ -30,6 +30,10 @@ const fileFilter = (req, file, cb) => {
     "text/plain",
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "audio/mpeg",
+    "audio/wav",
+    "audio/webm",
+    "audio/ogg",
   ];
   if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
@@ -41,5 +45,5 @@ const fileFilter = (req, file, cb) => {
 export const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 25 * 1024 * 1024 },
 });
