@@ -15,7 +15,7 @@ export const listUsers = async (req, res) => {
     }
 
     const users = await User.find(filters).select(
-      "name email avatar onlineStatus lastSeen createdAt"
+      "name email avatar onlineStatus lastSeen createdAt encryptionPublicKey"
     );
 
     return res.json(users);
@@ -27,7 +27,7 @@ export const listUsers = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const { name, avatar } = req.body;
+    const { name, avatar, encryptionPublicKey } = req.body;
 
     const update = {};
     if (typeof name === "string" && name.trim()) {
@@ -35,6 +35,9 @@ export const updateProfile = async (req, res) => {
     }
     if (typeof avatar === "string") {
       update.avatar = avatar;
+    }
+    if (typeof encryptionPublicKey === "string" && encryptionPublicKey.trim()) {
+      update.encryptionPublicKey = encryptionPublicKey.trim();
     }
 
     if (Object.keys(update).length === 0) {
